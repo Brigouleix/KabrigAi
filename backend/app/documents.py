@@ -18,16 +18,30 @@ def _safe_name(filename: str, ext: str) -> Path:
 
 def create_pdf(filename: str, title: str, content: str) -> str:
     from fpdf import FPDF
+    from fpdf.enums import XPos, YPos
+
+    cell_kwargs = {"new_x": XPos.LMARGIN, "new_y": YPos.NEXT}
 
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=18)
     pdf.add_page()
-    pdf.set_font("helvetica", "B", 18)
-    pdf.multi_cell(0, 10, title.encode("latin-1", "replace").decode("latin-1"))
+    # Polices Unicode de Windows : les fonts de base de fpdf2 (latin-1 only)
+    # plantent sur les tirets longs et autres caractères du LLM.
+    fonts = Path("C:/Windows/Fonts")
+    if (fonts / "segoeui.ttf").exists():
+        pdf.add_font("ui", "", fonts / "segoeui.ttf")
+        pdf.add_font("ui", "B", fonts / ("segoeuib.ttf" if (fonts / "segoeuib.ttf").exists() else "segoeui.ttf"))
+        family = "ui"
+    else:
+        family = "helvetica"
+        title = title.encode("latin-1", "replace").decode("latin-1")
+        content = content.encode("latin-1", "replace").decode("latin-1")
+    pdf.set_font(family, "B", 18)
+    pdf.multi_cell(0, 10, title, **cell_kwargs)
     pdf.ln(4)
-    pdf.set_font("helvetica", "", 11)
+    pdf.set_font(family, "", 11)
     for para in content.split("\n"):
-        pdf.multi_cell(0, 6, para.encode("latin-1", "replace").decode("latin-1"))
+        pdf.multi_cell(0, 6, para if para.strip() else " ", **cell_kwargs)
     target = _safe_name(filename, ".pdf")
     pdf.output(str(target))
     return f"PDF créé : {target}"

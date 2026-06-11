@@ -242,6 +242,7 @@ class PrefsIn(BaseModel):
     city: str | None = None
     sports: list[str] | None = None
     tiles: list[str] | None = None
+    spotify: str | None = None
 
 
 @app.get("/api/prefs")
@@ -251,7 +252,45 @@ async def prefs_get():
 
 @app.post("/api/prefs")
 async def prefs_set(p: PrefsIn):
-    return set_prefs(p.city, p.sports, p.tiles)
+    return set_prefs(p.city, p.sports, p.tiles, p.spotify)
+
+
+def _fetch_mailbox() -> dict:
+    """Derniers mails non lus via Gmail IMAP (mêmes identifiants que l'envoi)."""
+    import email
+    import imaplib
+    import os
+    from email.header import decode_header
+
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).parent.parent / ".env")
+    sender = os.getenv("GMAIL_ADDRESS")
+    password = os.getenv("GMAIL_APP_PASSWORD")
+    if not sender or not password:
+        return {"configured": False, "messages": []}
+
+    def _decode(value: str) -> str:
+        parts = decode_header(value or "")
+        return "".join(
+            p.decode(enc or "utf-8", errors="replace") if isinstance(p, bytes) else p
+            for p, enc in parts
+        )
+
+    box = imaplib.IMAP4_SSL("imap.gmail.com")
+    box.login(sender, password)
+    box.select("INBOX", readonly=True)
+    _, data = box.search(None, "UNSEEN")
+    ids = data[0].split()
+    unread = len(ids)
+    messages = []
+    for mid in reversed(ids[-5:]):
+        _, msg_data = box.fetch(mid, "(BODY.PEEK[HEADER.FIELDS (SUBJECT FROM)])")
+        msg = email.message_from_bytes(msg_data[0][1])
+        sender_name = _decode(msg.get("From", "")).split("<")[0].strip().strip('"')
+        messages.append({"subject": _decode(msg.get("Subject", "(sans objet)")), "from": sender_name})
+    box.logout()
+    return {"configured": True, "unread": unread, "messages": messages}
 
 
 async def _fetch_sport_feed(client: httpx.AsyncClient, sport: str) -> list[dict]:
@@ -317,13 +356,17 @@ async def dashboard(city: str = ""):
         except Exception:
             return fallback
 
-    weather_data, sport_data, sorties_data = await asyncio.gather(
-        safe(weather(), {}), safe(sport(), []), safe(sorties(), "")
+    weather_data, sport_data, sorties_data, mail_data = await asyncio.gather(
+        safe(weather(), {}),
+        safe(sport(), []),
+        safe(sorties(), ""),
+        safe(asyncio.to_thread(_fetch_mailbox), {"configured": False, "messages": []}),
     )
     return {
         "weather": weather_data,
         "sport": sport_data,
         "sorties": sorties_data,
+        "mail": mail_data,
         "events": get_events()[:5],
         "prefs": prefs,
     }

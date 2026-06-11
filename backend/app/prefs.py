@@ -9,12 +9,13 @@ from pathlib import Path
 PREFS_PATH = Path(__file__).parent.parent / "prefs.json"
 
 VALID_SPORTS = ["tous", "football", "rugby", "tennis", "basket", "cyclisme", "formule 1"]
-VALID_TILES = ["weather", "agenda", "sport", "sorties"]
+VALID_TILES = ["weather", "agenda", "sport", "sorties", "mail", "spotify", "whatsapp"]
 
 DEFAULTS = {
     "city": "Brest",
     "sports": ["tous"],
-    "tiles": ["weather", "agenda", "sport", "sorties"],
+    "tiles": ["weather", "agenda", "sport", "sorties", "mail", "spotify", "whatsapp"],
+    "spotify": "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
 }
 
 # Chemins RSS L'Équipe par sport.
@@ -43,10 +44,13 @@ def set_prefs(
     city: str | None = None,
     sports: list[str] | None = None,
     tiles: list[str] | None = None,
+    spotify: str | None = None,
 ) -> dict:
     prefs = get_prefs()
     if city:
         prefs["city"] = city.strip()
+    if spotify and "open.spotify.com" in spotify:
+        prefs["spotify"] = spotify.strip()
     if sports is not None:
         valid = [s for s in sports if s in VALID_SPORTS]
         if valid:
@@ -59,9 +63,12 @@ def set_prefs(
 
 
 def update_preferences(
-    city: str = "", sports: list[str] | None = None, tiles: list[str] | None = None
+    city: str = "",
+    sports: list[str] | None = None,
+    tiles: list[str] | None = None,
+    spotify: str = "",
 ) -> str:
-    prefs = set_prefs(city or None, sports, tiles)
+    prefs = set_prefs(city or None, sports, tiles, spotify or None)
     return (
         "Préférences mises à jour. Accueil actuel : "
         f"ville {prefs['city']}, sports {', '.join(prefs['sports'])}, "
@@ -94,8 +101,13 @@ PREFS_TOOL_DEFINITION = {
                     "items": {"type": "string", "enum": VALID_TILES},
                     "description": (
                         "Tuiles à afficher, dans l'ordre voulu. Omettre une tuile la masque. "
-                        "weather=météo, agenda, sport, sorties=idées de sortie"
+                        "weather=météo, agenda, sport, sorties=idées de sortie, "
+                        "mail=boîte Gmail, spotify=lecteur, whatsapp"
                     ),
+                },
+                "spotify": {
+                    "type": "string",
+                    "description": "URL open.spotify.com d'une playlist/album à afficher dans le lecteur",
                 },
             },
         },

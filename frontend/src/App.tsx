@@ -43,15 +43,21 @@ type AgendaEvent = {
   notes: string;
 };
 
-type Prefs = { city: string; sports: string[]; tiles: string[] };
+type Prefs = { city: string; sports: string[]; tiles: string[]; spotify: string };
 
 type Dashboard = {
   weather: { data?: WeatherData } | WeatherData | null;
   sport: { title: string; url: string; source: string }[];
   sorties: string;
+  mail: { configured: boolean; unread?: number; messages: { subject: string; from: string }[] };
   events: AgendaEvent[];
   prefs: Prefs;
 };
+
+function spotifyEmbedUrl(url: string): string | null {
+  const m = url.match(/open\.spotify\.com\/(playlist|album|track|artist)\/([A-Za-z0-9]+)/);
+  return m ? `https://open.spotify.com/embed/${m[1]}/${m[2]}?theme=0` : null;
+}
 
 const ALL_SPORTS = ["tous", "football", "rugby", "tennis", "basket", "cyclisme", "formule 1"];
 
@@ -382,6 +388,80 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                 ) : (
                   <p className="tile-empty">{loading ? "Chargement…" : "Pas d'actu sport."}</p>
                 )}
+              </section>
+            );
+          if (t === "mail")
+            return (
+              <section className="tile" key={t}>
+                <h3>
+                  📬 Boîte mail
+                  {data?.mail?.configured && <span className="badge">{data.mail.unread} non lus</span>}
+                </h3>
+                {!data?.mail?.configured ? (
+                  <p className="tile-empty">
+                    Non configurée — ajoute GMAIL_ADDRESS et GMAIL_APP_PASSWORD dans backend/.env
+                    (le même que pour l'envoi de mails).
+                  </p>
+                ) : data.mail.messages.length ? (
+                  <ul className="tile-list">
+                    {data.mail.messages.map((m, i) => (
+                      <li key={i}>
+                        <span className="mail-from">{m.from}</span>
+                        <span>{m.subject}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="tile-empty">Aucun mail non lu 🎉</p>
+                )}
+                <ExternalLink className="tile-link" href="https://mail.google.com">
+                  Ouvrir Gmail →
+                </ExternalLink>
+              </section>
+            );
+          if (t === "spotify") {
+            const embed = data ? spotifyEmbedUrl(data.prefs.spotify) : null;
+            return (
+              <section className="tile" key={t}>
+                <h3>🎵 Spotify</h3>
+                {embed ? (
+                  <iframe
+                    className="spotify-frame"
+                    src={embed}
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy"
+                    title="Spotify"
+                  />
+                ) : (
+                  <p className="tile-empty">Colle une URL open.spotify.com dans les préférences.</p>
+                )}
+                <input
+                  className="spotify-input"
+                  placeholder="Coller un lien playlist/album Spotify…"
+                  onKeyDown={async (e) => {
+                    if (e.key === "Enter") {
+                      await fetch(`${BACKEND}/api/prefs`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ spotify: e.currentTarget.value }),
+                      });
+                      load();
+                    }
+                  }}
+                />
+              </section>
+            );
+          }
+          if (t === "whatsapp")
+            return (
+              <section className="tile" key={t}>
+                <h3>💬 WhatsApp</h3>
+                <p className="tile-empty">
+                  WhatsApp n'a pas d'API publique — mais ton WhatsApp Web s'ouvre en un clic.
+                </p>
+                <ExternalLink className="wa-btn" href="https://web.whatsapp.com">
+                  Ouvrir WhatsApp Web
+                </ExternalLink>
               </section>
             );
           if (t === "sorties")

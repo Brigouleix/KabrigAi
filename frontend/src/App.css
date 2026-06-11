@@ -376,6 +376,64 @@ footer button:disabled {
   margin-bottom: 12px;
 }
 
+.badge {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #c2702a;
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 2px 9px;
+  vertical-align: middle;
+}
+
+.mail-from {
+  font-weight: 700;
+  white-space: nowrap;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+}
+
+.tile-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.spotify-frame {
+  width: 100%;
+  height: 352px;
+  border: none;
+  border-radius: 12px;
+}
+
+.spotify-input {
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-soft);
+  font-size: 12.5px;
+  outline: none;
+}
+
+.wa-btn {
+  display: inline-block;
+  margin-top: 10px;
+  background: #22c15e;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 999px;
+  padding: 11px 20px;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .tiles {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
