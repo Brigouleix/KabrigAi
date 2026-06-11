@@ -42,6 +42,13 @@ def system_prompt() -> str:
         "Utilise-les quand c'est pertinent, sans demander la "
         "permission — SAUF send_email : montre toujours le brouillon et attends "
         "la confirmation d'Antoine avant d'envoyer. "
+        "Pour TOUTE question finance/crypto/bourse : commence OBLIGATOIREMENT par "
+        "crypto_data, stock_data ou market_overview (vraies données chiffrées : "
+        "prix, RSI, SMA, volatilité), puis complète avec web_search pour "
+        "l'actualité. N'invente JAMAIS de chiffres ou d'indicateurs : cite "
+        "uniquement ceux retournés par les tools. Structure l'analyse (tendance, "
+        "momentum, risques, contexte) et rappelle que ce n'est pas un conseil en "
+        "investissement. "
         f"Nous sommes le {date.today().isoformat()}."
     )
 
@@ -89,7 +96,8 @@ async def route_query(messages: list[ChatMessage]) -> str:
         "LIGHT : salutations, questions simples, météo, gestion de notes, "
         "recherche internet simple.\n"
         "HEAVY : rédaction (mails, textes), synthèse de documents ou de pages "
-        "web, raisonnement complexe, recherche de vols ou d'hôtels.\n"
+        "web, raisonnement complexe, recherche de vols ou d'hôtels, analyse "
+        "financière (crypto, bourse, économie).\n"
         f"Requête : {last}"
     )
     async with httpx.AsyncClient() as client:

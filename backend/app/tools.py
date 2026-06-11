@@ -10,6 +10,7 @@ from pathlib import Path
 import httpx
 
 from .agenda import AGENDA_TOOL_DEFINITIONS, create_event, delete_event, list_events
+from .finance import FINANCE_TOOL_DEFINITIONS, crypto_data, market_overview, stock_data
 from .prefs import PREFS_TOOL_DEFINITION, update_preferences
 from .documents import DOCUMENT_TOOL_DEFINITION, create_document
 from .routing import ROUTE_TOOL_DEFINITION, get_route
@@ -260,12 +261,17 @@ def travel_links(
     return "\n".join(lines)
 
 
-TOOL_DEFINITIONS = [
+TOOL_DEFINITIONS = FINANCE_TOOL_DEFINITIONS + [
     {
         "type": "function",
         "function": {
             "name": "web_search",
-            "description": "Recherche sur internet (DuckDuckGo). À utiliser pour toute question d'actualité ou information que tu ne connais pas.",
+            "description": (
+                "Recherche sur internet (DuckDuckGo). À utiliser pour l'actualité "
+                "et les informations générales. NE PAS utiliser pour les prix ou "
+                "indicateurs financiers : utiliser crypto_data / stock_data / "
+                "market_overview qui donnent les vraies données chiffrées."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -425,6 +431,12 @@ async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
             return await read_webpage(**args), None
         if name == "get_route":
             return await get_route(**args)
+        if name == "crypto_data":
+            return await crypto_data(**args), None
+        if name == "stock_data":
+            return await stock_data(**args), None
+        if name == "market_overview":
+            return await market_overview(), None
         if name == "index_document":
             return await index_document(**args), None
         if name == "search_documents":
