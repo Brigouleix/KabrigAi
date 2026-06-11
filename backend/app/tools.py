@@ -146,7 +146,71 @@ def read_document(path: str) -> str:
     return text[:20000] + ("\n[... tronqué]" if len(text) > 20000 else "")
 
 
+def travel_links(
+    origin: str,
+    destination: str,
+    origin_iata: str,
+    destination_iata: str,
+    depart: str,
+    return_date: str = "",
+) -> str:
+    """Génère des liens de recherche pré-remplis (vols + logements)."""
+    from urllib.parse import quote
+
+    d = depart  # YYYY-MM-DD
+    r = return_date
+    yymmdd = d[2:4] + d[5:7] + d[8:10]
+    gf_query = f"Flights from {origin} to {destination} on {d}"
+    if r:
+        gf_query += f" returning {r}"
+    kayak = f"https://www.kayak.fr/flights/{origin_iata}-{destination_iata}/{d}"
+    if r:
+        kayak += f"/{r}"
+    sky = f"https://www.skyscanner.fr/transport/vols/{origin_iata.lower()}/{destination_iata.lower()}/{yymmdd}/"
+    if r:
+        sky += r[2:4] + r[5:7] + r[8:10] + "/"
+    lines = [
+        f"Liens de recherche {origin} → {destination} ({d}{' / retour ' + r if r else ''}) :",
+        f"- [Google Flights](https://www.google.com/travel/flights?q={quote(gf_query)})",
+        f"- [Kayak]({kayak})",
+        f"- [Skyscanner]({sky})",
+    ]
+    if r:
+        lines += [
+            f"- [Booking](https://www.booking.com/searchresults.fr.html?ss={quote(destination)}&checkin={d}&checkout={r})",
+            f"- [Airbnb](https://www.airbnb.fr/s/{quote(destination)}/homes?checkin={d}&checkout={r})",
+        ]
+    lines.append(
+        "\nPrésente ces liens markdown tels quels à l'utilisateur, il peut cliquer dessus."
+    )
+    return "\n".join(lines)
+
+
 TOOL_DEFINITIONS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "travel_links",
+            "description": (
+                "Génère des liens de recherche pré-remplis vers Google Flights, "
+                "Kayak, Skyscanner (vols) et Booking/Airbnb (logements si date "
+                "de retour fournie). Aucune clé API requise — à privilégier pour "
+                "chercher des vols ou logements."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "origin": {"type": "string", "description": "Ville de départ"},
+                    "destination": {"type": "string", "description": "Ville d'arrivée"},
+                    "origin_iata": {"type": "string", "description": "Code IATA départ, ex: PAR"},
+                    "destination_iata": {"type": "string", "description": "Code IATA arrivée, ex: LIS"},
+                    "depart": {"type": "string", "description": "Date aller YYYY-MM-DD"},
+                    "return_date": {"type": "string", "description": "Date retour YYYY-MM-DD, optionnel"},
+                },
+                "required": ["origin", "destination", "origin_iata", "destination_iata", "depart"],
+            },
+        },
+    },
     {
         "type": "function",
         "function": {
@@ -245,6 +309,7 @@ async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
         if name == "search_hotels":
             return await search_hotels(**args)
         sync = {
+            "travel_links": travel_links,
             "create_note": create_note,
             "list_notes": list_notes,
             "read_note": read_note,

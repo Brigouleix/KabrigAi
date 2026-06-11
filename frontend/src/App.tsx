@@ -1,5 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
+import { openUrl } from "@tauri-apps/plugin-opener";
+
+const isTauri = "__TAURI_INTERNALS__" in window;
+
+function ExternalLink(props: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+  return (
+    <a
+      {...props}
+      href={props.href}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => {
+        if (isTauri && props.href) {
+          e.preventDefault();
+          openUrl(props.href);
+        }
+      }}
+    />
+  );
+}
 import { WeatherCard, type WeatherData } from "./WeatherCard";
 import { FlightCard, type FlightData } from "./FlightCard";
 import "./App.css";
@@ -127,7 +147,7 @@ function App() {
             {m.flights && <FlightCard data={m.flights} />}
             {m.role === "assistant" ? (
               m.content ? (
-                <Markdown>{m.content}</Markdown>
+                <Markdown components={{ a: ExternalLink }}>{m.content}</Markdown>
               ) : (
                 <p>{busy && i === messages.length - 1 ? "…" : ""}</p>
               )

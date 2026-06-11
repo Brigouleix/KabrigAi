@@ -183,6 +183,10 @@ main {
   color: #3fb950;
 }
 
+.msg.assistant a {
+  color: #58a6ff;
+}
+
 .msg.assistant pre {
   background: #0d1117;
   border: 1px solid #30363d;
