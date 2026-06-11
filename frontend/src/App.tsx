@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { WeatherCard, type WeatherData } from "./WeatherCard";
+import { FlightCard, type FlightData } from "./FlightCard";
 import "./App.css";
 
 const BACKEND = "http://localhost:8000";
@@ -11,6 +12,7 @@ type Message = {
   model?: string;
   tools?: string[];
   weather?: WeatherData;
+  flights?: FlightData;
 };
 
 function App() {
@@ -19,6 +21,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [health, setHealth] = useState<{ ollama: boolean; models: string[] } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetch(`${BACKEND}/api/health`)
@@ -40,6 +43,9 @@ function App() {
     const history: Message[] = [...messages, { role: "user", content: text }];
     setMessages([...history, { role: "assistant", content: "" }]);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const res = await fetch(`${BACKEND}/api/chat`, {
         method: "POST",
@@ -47,6 +53,7 @@ function App() {
         body: JSON.stringify({
           messages: history.map(({ role, content }) => ({ role, content })),
         }),
+        signal: controller.signal,
       });
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
@@ -68,22 +75,33 @@ function App() {
             if (evt.type === "token") last.content += evt.content;
             if (evt.type === "tool") last.tools = [...(last.tools ?? []), evt.name];
             if (evt.type === "widget" && evt.widget === "weather") last.weather = evt.data;
+            if (evt.type === "widget" && evt.widget === "flights") last.flights = evt.data;
             next[next.length - 1] = last;
             return next;
           });
         }
       }
-    } catch {
+    } catch (err) {
+      const aborted = err instanceof DOMException && err.name === "AbortError";
       setMessages((prev) => {
         const next = [...prev];
         const last = { ...next[next.length - 1] };
-        last.content ||= "⚠️ Backend injoignable (lance `uvicorn app.main:app` dans backend/)";
+        if (aborted) {
+          last.content += last.content ? "\n\n*[interrompu]*" : "*[interrompu]*";
+        } else {
+          last.content ||= "⚠️ Backend injoignable (lance `uvicorn app.main:app` dans backend/)";
+        }
         next[next.length - 1] = last;
         return next;
       });
     } finally {
+      abortRef.current = null;
       setBusy(false);
     }
+  }
+
+  function stop() {
+    abortRef.current?.abort();
   }
 
   return (
@@ -106,6 +124,7 @@ function App() {
               <span key={j} className="tool">🔧 {t}</span>
             ))}
             {m.weather && <WeatherCard data={m.weather} />}
+            {m.flights && <FlightCard data={m.flights} />}
             {m.role === "assistant" ? (
               m.content ? (
                 <Markdown>{m.content}</Markdown>
@@ -128,9 +147,15 @@ function App() {
           placeholder="Écris un message…"
           disabled={busy}
         />
-        <button onClick={send} disabled={busy || !input.trim()}>
-          Envoyer
-        </button>
+        {busy ? (
+          <button className="stop" onClick={stop}>
+            ■ Stop
+          </button>
+        ) : (
+          <button onClick={send} disabled={!input.trim()}>
+            Envoyer
+          </button>
+        )}
       </footer>
     </div>
   );

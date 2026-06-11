@@ -137,6 +137,52 @@ main {
   color: #9fb6d4;
 }
 
+.flight-card {
+  background: linear-gradient(135deg, #1f1a40, #15102d);
+  border: 1px solid #4a2c7c;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 8px;
+  min-width: 320px;
+}
+
+.flight-header {
+  font-weight: 600;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.flight-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid #2a2050;
+  font-size: 13px;
+}
+
+.flight-carrier {
+  background: #2a2050;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-weight: 600;
+}
+
+.flight-times {
+  font-weight: 600;
+}
+
+.flight-stops {
+  color: #9d8fc4;
+  font-size: 12px;
+}
+
+.flight-price {
+  margin-left: auto;
+  font-weight: 700;
+  color: #3fb950;
+}
+
 .msg.assistant pre {
   background: #0d1117;
   border: 1px solid #30363d;
@@ -200,6 +246,10 @@ footer button {
   color: white;
   cursor: pointer;
   font-size: 14px;
+}
+
+footer button.stop {
+  background: #da3633;
 }
 
 footer button:disabled {

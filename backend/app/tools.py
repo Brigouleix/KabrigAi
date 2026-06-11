@@ -9,6 +9,8 @@ from pathlib import Path
 
 import httpx
 
+from .travel import TRAVEL_TOOL_DEFINITIONS, search_flights, search_hotels
+
 DB_PATH = Path(__file__).parent.parent / "kabrig.db"
 DOCS_DIR = Path.home() / "Documents"
 
@@ -229,7 +231,7 @@ TOOL_DEFINITIONS = [
             },
         },
     },
-]
+] + TRAVEL_TOOL_DEFINITIONS
 
 
 async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
@@ -238,6 +240,10 @@ async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
         if name == "get_weather":
             text, widget = await get_weather(**args)
             return text, {"widget": "weather", "data": widget} if widget else None
+        if name == "search_flights":
+            return await search_flights(**args)
+        if name == "search_hotels":
+            return await search_hotels(**args)
         sync = {
             "create_note": create_note,
             "list_notes": list_notes,

@@ -21,12 +21,16 @@ MAX_TOOL_ROUNDS = 5
 MEMORY_THRESHOLD = 12  # au-delà, on résume les anciens messages
 MEMORY_KEEP_RECENT = 6  # messages récents conservés tels quels
 
-SYSTEM_PROMPT = (
-    "Tu es Kabrig, l'assistant personnel d'Antoine. Tu réponds en français, "
-    "de façon concise et utile. Tu as accès à des outils : météo, notes, "
-    "lecture de documents. Utilise-les quand c'est pertinent, sans demander "
-    "la permission."
-)
+def system_prompt() -> str:
+    from datetime import date
+
+    return (
+        "Tu es Kabrig, l'assistant personnel d'Antoine. Tu réponds en français, "
+        "de façon concise et utile. Tu as accès à des outils : météo, notes, "
+        "lecture de documents, recherche de vols et d'hôtels. Utilise-les quand "
+        "c'est pertinent, sans demander la permission. "
+        f"Nous sommes le {date.today().isoformat()}."
+    )
 
 app = FastAPI(title="Kabrig AI")
 
@@ -70,7 +74,8 @@ async def route_query(messages: list[ChatMessage]) -> str:
     prompt = (
         "Tu es un routeur. Réponds uniquement par LIGHT ou HEAVY.\n"
         "LIGHT : salutations, questions simples, météo, gestion de notes.\n"
-        "HEAVY : rédaction, synthèse de documents, raisonnement complexe.\n"
+        "HEAVY : rédaction, synthèse de documents, raisonnement complexe, "
+        "recherche de vols ou d'hôtels.\n"
         f"Requête : {last}"
     )
     async with httpx.AsyncClient() as client:
@@ -114,7 +119,7 @@ async def chat(req: ChatRequest):
     """Chat avec tool calling : boucle tools (non-streamé) puis réponse streamée."""
     model = await route_query(req.messages)
     history = await compress_history(req.messages)
-    convo = [{"role": "system", "content": SYSTEM_PROMPT}] + history
+    convo = [{"role": "system", "content": system_prompt()}] + history
 
     async def stream():
         yield json.dumps({"type": "model", "model": model}) + "\n"
