@@ -442,17 +442,8 @@ footer button:disabled {
   gap: 0 16px;
 }
 
-.tile.size-s {
-  --tile-rows: 18;
-}
-
-.tile.size-m {
-  --tile-rows: 32;
-}
-
 .tile.size-l {
   grid-column: span 2;
-  --tile-rows: 48;
 }
 
 @media (max-width: 760px) {
@@ -462,12 +453,14 @@ footer button:disabled {
 }
 
 .tiles .tile {
-  grid-row: span var(--tile-rows, 32);
   margin-bottom: 16px;
-  overflow-y: auto;
   scrollbar-width: thin;
   cursor: grab;
   transition: box-shadow 0.15s, opacity 0.15s, transform 0.15s;
+}
+
+.tiles .tile.size-s {
+  overflow-y: auto; /* taille S = hauteur plafonnée, contenu scrollable */
 }
 
 .tiles .tile.dragging {

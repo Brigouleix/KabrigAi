@@ -280,6 +280,44 @@ function ChatView({
 
 /* ---------------- Accueil ---------------- */
 
+// Tuile à hauteur automatique : mesure son contenu et occupe exactement
+// le nombre de rangées nécessaires dans la grille (pas de vide).
+function Tile({
+  className,
+  drag,
+  children,
+}: {
+  className: string;
+  drag: React.HTMLAttributes<HTMLElement>;
+  children: React.ReactNode;
+}) {
+  const secRef = useRef<HTMLElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sec = secRef.current;
+    const inner = innerRef.current;
+    if (!sec || !inner) return;
+    const small = className.includes("size-s");
+    const apply = () => {
+      // contenu + padding (2x18) + marge de grille (16), rangées de 10px
+      let span = Math.ceil((inner.offsetHeight + 36 + 16) / 10);
+      if (small) span = Math.min(span, 22);
+      sec.style.gridRowEnd = `span ${span}`;
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, [className, children]);
+
+  return (
+    <section ref={secRef} className={className} {...drag}>
+      <div ref={innerRef}>{children}</div>
+    </section>
+  );
+}
+
 function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
   const [data, setData] = useState<Dashboard | null>(null);
   const [city, setCity] = useState("");
@@ -475,18 +513,18 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
         {tiles.map((t) => {
           if (t === "weather")
             return (
-              <section className={tileClass(t)} key={t} {...dragProps(t)}>
+              <Tile className={tileClass(t)} key={t} drag={dragProps(t)}>
                 <h3>🌤️ Météo <SizeBtn tile={t} /></h3>
                 {weather && weather.city ? (
                   <WeatherCard data={weather} />
                 ) : (
                   <p className="tile-empty">{loading ? "Chargement…" : "Indisponible"}</p>
                 )}
-              </section>
+              </Tile>
             );
           if (t === "agenda")
             return (
-              <section className={tileClass(t)} key={t} {...dragProps(t)}>
+              <Tile className={tileClass(t)} key={t} drag={dragProps(t)}>
                 <h3>📅 Agenda <SizeBtn tile={t} /></h3>
                 {data?.events?.length ? (
                   <ul className="tile-list">
@@ -502,11 +540,11 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                 ) : (
                   <p className="tile-empty">Rien de prévu. Dis-le à Kabrig ou utilise l'onglet Agenda.</p>
                 )}
-              </section>
+              </Tile>
             );
           if (t === "sport")
             return (
-              <section className={tileClass(t)} key={t} {...dragProps(t)}>
+              <Tile className={tileClass(t)} key={t} drag={dragProps(t)}>
                 <h3>🏉 Sport <SizeBtn tile={t} /></h3>
                 <div className="sport-filters">
                   {ALL_SPORTS.map((s) => (
@@ -531,11 +569,11 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                 ) : (
                   <p className="tile-empty">{loading ? "Chargement…" : "Pas d'actu sport."}</p>
                 )}
-              </section>
+              </Tile>
             );
           if (t === "mail")
             return (
-              <section className={tileClass(t)} key={t} {...dragProps(t)}>
+              <Tile className={tileClass(t)} key={t} drag={dragProps(t)}>
                 <h3>
                   📬 Boîte mail
                   {data?.mail?.configured && <span className="badge">{data.mail.unread} non lus</span>}
@@ -561,12 +599,12 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                 <ExternalLink className="tile-link" href="https://mail.google.com">
                   Ouvrir Gmail →
                 </ExternalLink>
-              </section>
+              </Tile>
             );
           if (t === "spotify") {
             const embed = data ? spotifyEmbedUrl(data.prefs.spotify) : null;
             return (
-              <section className={tileClass(t)} key={t} {...dragProps(t)}>
+              <Tile className={tileClass(t)} key={t} drag={dragProps(t)}>
                 <h3>🎵 Spotify <SizeBtn tile={t} /></h3>
                 {spotify?.configured && !spotify.connected && (
                   <button className="wa-btn spotify-connect" onClick={connectSpotify}>
@@ -633,12 +671,12 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                     }
                   }}
                 />
-              </section>
+              </Tile>
             );
           }
           if (t === "whatsapp")
             return (
-              <section className={tileClass(t)} key={t} {...dragProps(t)}>
+              <Tile className={tileClass(t)} key={t} drag={dragProps(t)}>
                 <h3>💬 WhatsApp <SizeBtn tile={t} /></h3>
                 <p className="tile-empty">
                   WhatsApp n'a pas d'API publique — mais ton WhatsApp Web s'ouvre en un clic.
@@ -646,11 +684,11 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                 <ExternalLink className="wa-btn" href="https://web.whatsapp.com">
                   Ouvrir WhatsApp Web
                 </ExternalLink>
-              </section>
+              </Tile>
             );
           if (t === "sorties")
             return (
-              <section className={tileClass(t)} key={t} {...dragProps(t)}>
+              <Tile className={tileClass(t)} key={t} drag={dragProps(t)}>
                 <h3>🎉 Idées de sortie <SizeBtn tile={t} /></h3>
                 {data?.sorties ? (
                   <div className="tile-md">
@@ -659,14 +697,14 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                 ) : (
                   <p className="tile-empty">{loading ? "Chargement…" : "Aucune suggestion."}</p>
                 )}
-              </section>
+              </Tile>
             );
           if (t.startsWith("custom:")) {
             const id = t.slice(7);
             const def = data?.prefs.custom.find((c) => c.id === id);
             const items = data?.custom?.[id] ?? [];
             return (
-              <section className={tileClass(t)} key={t} {...dragProps(t)}>
+              <Tile className={tileClass(t)} key={t} drag={dragProps(t)}>
                 <h3>
                   📌 {def?.title ?? id} <SizeBtn tile={t} />
                   <button
@@ -696,7 +734,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                 ) : (
                   <p className="tile-empty">{loading ? "Chargement…" : "Aucune actu trouvée."}</p>
                 )}
-              </section>
+              </Tile>
             );
           }
           return null;
