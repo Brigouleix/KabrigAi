@@ -43,15 +43,31 @@ type AgendaEvent = {
   notes: string;
 };
 
-type Prefs = { city: string; sports: string[]; tiles: string[]; spotify: string };
+type Prefs = {
+  city: string;
+  sports: string[];
+  tiles: string[];
+  spotify: string;
+  sizes: Record<string, "s" | "m" | "l">;
+  custom: { id: string; title: string; query: string }[];
+};
+
+type NewsItem = { title: string; url: string; source: string };
 
 type Dashboard = {
   weather: { data?: WeatherData } | WeatherData | null;
-  sport: { title: string; url: string; source: string }[];
+  sport: NewsItem[];
   sorties: string;
   mail: { configured: boolean; unread?: number; messages: { subject: string; from: string }[] };
+  custom: Record<string, NewsItem[]>;
   events: AgendaEvent[];
   prefs: Prefs;
+};
+
+type SpotifyStatus = {
+  configured: boolean;
+  connected: boolean;
+  player?: { playing: boolean; track?: string; artist?: string; device?: string };
 };
 
 function spotifyEmbedUrl(url: string): string | null {
@@ -298,6 +314,66 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
     load();
   }
 
+  const [spotify, setSpotify] = useState<SpotifyStatus | null>(null);
+
+  useEffect(() => {
+    fetch(`${BACKEND}/api/spotify/status`)
+      .then((r) => r.json())
+      .then(setSpotify)
+      .catch(() => setSpotify(null));
+  }, []);
+
+  async function spotifyAction(action: string) {
+    const res = await fetch(`${BACKEND}/api/spotify/control/${action}`, { method: "POST" });
+    const json = await res.json();
+    if (json.error) alert(json.error);
+    else setSpotify((s) => (s ? { ...s, player: json } : s));
+  }
+
+  async function spotifyPlayQuery(q: string) {
+    const res = await fetch(`${BACKEND}/api/spotify/play?q=${encodeURIComponent(q)}`);
+    const json = await res.json();
+    if (json.error) alert(json.error);
+    else setSpotify((s) => (s ? { ...s, player: json } : s));
+  }
+
+  async function connectSpotify() {
+    const res = await fetch(`${BACKEND}/api/spotify/login`);
+    const json = await res.json();
+    if (json.error) {
+      alert(json.error);
+      return;
+    }
+    if (isTauri) openUrl(json.url);
+    else window.open(json.url, "_blank");
+  }
+
+  async function cycleSize(tile: string) {
+    const order: ("s" | "m" | "l")[] = ["m", "l", "s"];
+    const current = data?.prefs.sizes?.[tile] ?? "m";
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    const sizes = { ...(data?.prefs.sizes ?? {}), [tile]: next };
+    await fetch(`${BACKEND}/api/prefs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sizes }),
+    });
+    setData((d) => (d ? { ...d, prefs: { ...d.prefs, sizes } } : d));
+  }
+
+  function tileClass(tile: string) {
+    return `tile size-${data?.prefs.sizes?.[tile] ?? "m"}`;
+  }
+
+  function SizeBtn({ tile }: { tile: string }) {
+    const size = data?.prefs.sizes?.[tile] ?? "m";
+    return (
+      <button className="size-btn" title="Taille (petit/moyen/grand)" onClick={() => cycleSize(tile)}>
+        {size.toUpperCase()}
+      </button>
+    );
+  }
+
   const weather = (data?.weather as { data?: WeatherData })?.data ?? (data?.weather as WeatherData | null);
   const tiles = data?.prefs.tiles ?? ["weather", "agenda", "sport", "sorties"];
 
@@ -332,8 +408,8 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
         {tiles.map((t) => {
           if (t === "weather")
             return (
-              <section className="tile" key={t}>
-                <h3>🌤️ Météo</h3>
+              <section className={tileClass(t)} key={t}>
+                <h3>🌤️ Météo <SizeBtn tile={t} /></h3>
                 {weather && weather.city ? (
                   <WeatherCard data={weather} />
                 ) : (
@@ -343,8 +419,8 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             );
           if (t === "agenda")
             return (
-              <section className="tile" key={t}>
-                <h3>📅 Agenda</h3>
+              <section className={tileClass(t)} key={t}>
+                <h3>📅 Agenda <SizeBtn tile={t} /></h3>
                 {data?.events?.length ? (
                   <ul className="tile-list">
                     {data.events.map((e) => (
@@ -363,8 +439,8 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             );
           if (t === "sport")
             return (
-              <section className="tile" key={t}>
-                <h3>🏉 Sport</h3>
+              <section className={tileClass(t)} key={t}>
+                <h3>🏉 Sport <SizeBtn tile={t} /></h3>
                 <div className="sport-filters">
                   {ALL_SPORTS.map((s) => (
                     <button
@@ -392,10 +468,11 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             );
           if (t === "mail")
             return (
-              <section className="tile" key={t}>
+              <section className={tileClass(t)} key={t}>
                 <h3>
                   📬 Boîte mail
                   {data?.mail?.configured && <span className="badge">{data.mail.unread} non lus</span>}
+                  <SizeBtn tile={t} />
                 </h3>
                 {!data?.mail?.configured ? (
                   <p className="tile-empty">
@@ -422,8 +499,35 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
           if (t === "spotify") {
             const embed = data ? spotifyEmbedUrl(data.prefs.spotify) : null;
             return (
-              <section className="tile" key={t}>
-                <h3>🎵 Spotify</h3>
+              <section className={tileClass(t)} key={t}>
+                <h3>🎵 Spotify <SizeBtn tile={t} /></h3>
+                {spotify?.configured && !spotify.connected && (
+                  <button className="wa-btn spotify-connect" onClick={connectSpotify}>
+                    Connecter mon compte Spotify
+                  </button>
+                )}
+                {spotify?.connected && (
+                  <div className="spotify-player">
+                    <div className="now-playing">
+                      {spotify.player?.track ? (
+                        <>
+                          <strong>{spotify.player.track}</strong>
+                          <span>{spotify.player.artist}</span>
+                          {spotify.player.device && <span className="src">sur {spotify.player.device}</span>}
+                        </>
+                      ) : (
+                        <span className="tile-empty">Rien en lecture — ouvre Spotify quelque part.</span>
+                      )}
+                    </div>
+                    <div className="spotify-controls">
+                      <button onClick={() => spotifyAction("previous")}>⏮</button>
+                      <button onClick={() => spotifyAction(spotify.player?.playing ? "pause" : "play")}>
+                        {spotify.player?.playing ? "⏸" : "▶"}
+                      </button>
+                      <button onClick={() => spotifyAction("next")}>⏭</button>
+                    </div>
+                  </div>
+                )}
                 {embed ? (
                   <iframe
                     className="spotify-frame"
@@ -437,21 +541,29 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                 )}
                 <input
                   className="spotify-input"
-                  placeholder="🔍 Titre, artiste, album… ou colle un lien Spotify"
+                  placeholder={
+                    spotify?.connected
+                      ? "🔍 Titre/artiste → lecture directe sur ton appareil"
+                      : "🔍 Titre, artiste, album… ou colle un lien Spotify"
+                  }
                   onKeyDown={async (e) => {
                     if (e.key !== "Enter") return;
                     const value = e.currentTarget.value.trim();
                     if (!value) return;
+                    e.currentTarget.value = "";
                     if (value.includes("open.spotify.com")) {
                       await fetch(`${BACKEND}/api/prefs`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ spotify: value }),
                       });
+                      load();
+                    } else if (spotify?.connected) {
+                      spotifyPlayQuery(value);
                     } else {
                       await fetch(`${BACKEND}/api/spotify/search?q=${encodeURIComponent(value)}`);
+                      load();
                     }
-                    load();
                   }}
                 />
               </section>
@@ -459,8 +571,8 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
           }
           if (t === "whatsapp")
             return (
-              <section className="tile" key={t}>
-                <h3>💬 WhatsApp</h3>
+              <section className={tileClass(t)} key={t}>
+                <h3>💬 WhatsApp <SizeBtn tile={t} /></h3>
                 <p className="tile-empty">
                   WhatsApp n'a pas d'API publique — mais ton WhatsApp Web s'ouvre en un clic.
                 </p>
@@ -471,8 +583,8 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             );
           if (t === "sorties")
             return (
-              <section className="tile" key={t}>
-                <h3>🎉 Idées de sortie</h3>
+              <section className={tileClass(t)} key={t}>
+                <h3>🎉 Idées de sortie <SizeBtn tile={t} /></h3>
                 {data?.sorties ? (
                   <div className="tile-md">
                     <Markdown components={{ a: ExternalLink }}>{data.sorties}</Markdown>
@@ -482,6 +594,44 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                 )}
               </section>
             );
+          if (t.startsWith("custom:")) {
+            const id = t.slice(7);
+            const def = data?.prefs.custom.find((c) => c.id === id);
+            const items = data?.custom?.[id] ?? [];
+            return (
+              <section className={tileClass(t)} key={t}>
+                <h3>
+                  📌 {def?.title ?? id} <SizeBtn tile={t} />
+                  <button
+                    className="size-btn del-tile"
+                    title="Supprimer la tuile"
+                    onClick={async () => {
+                      await fetch(`${BACKEND}/api/prefs`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ remove_tile: id }),
+                      });
+                      load();
+                    }}
+                  >
+                    ✕
+                  </button>
+                </h3>
+                {items.length ? (
+                  <ul className="tile-list">
+                    {items.map((s, i) => (
+                      <li key={i}>
+                        <ExternalLink href={s.url}>{s.title}</ExternalLink>
+                        {s.source && <span className="src">{s.source}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="tile-empty">{loading ? "Chargement…" : "Aucune actu trouvée."}</p>
+                )}
+              </section>
+            );
+          }
           return null;
         })}
         {tiles.length === 0 && (

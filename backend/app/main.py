@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from .agenda import create_event as agenda_create, delete_event as agenda_delete, get_events
+from . import spotify as sp
 from .prefs import SPORT_FEEDS, get_prefs, set_prefs
 from .tools import TOOL_DEFINITIONS, execute_tool, get_weather, web_search
 
@@ -243,6 +244,9 @@ class PrefsIn(BaseModel):
     sports: list[str] | None = None
     tiles: list[str] | None = None
     spotify: str | None = None
+    sizes: dict | None = None
+    add_tile: dict | None = None
+    remove_tile: str | None = None
 
 
 @app.get("/api/prefs")
@@ -252,7 +256,44 @@ async def prefs_get():
 
 @app.post("/api/prefs")
 async def prefs_set(p: PrefsIn):
-    return set_prefs(p.city, p.sports, p.tiles, p.spotify)
+    return set_prefs(
+        p.city, p.sports, p.tiles, p.spotify,
+        sizes=p.sizes, add_tile=p.add_tile, remove_tile=p.remove_tile,
+    )
+
+
+@app.get("/api/spotify/status")
+async def spotify_status():
+    data = sp.status()
+    if data["connected"]:
+        data["player"] = await sp.now_playing()
+    return data
+
+
+@app.get("/api/spotify/login")
+async def spotify_login():
+    if not sp.client_id():
+        return {"error": "SPOTIFY_CLIENT_ID manquant dans backend/.env"}
+    return {"url": sp.login_url()}
+
+
+@app.get("/api/spotify/callback")
+async def spotify_callback(code: str = ""):
+    from fastapi.responses import HTMLResponse
+
+    ok = await sp.exchange_code(code) if code else False
+    msg = "✅ Spotify connecté ! Tu peux fermer cet onglet." if ok else "❌ Échec de la connexion Spotify."
+    return HTMLResponse(f"<html><body style='font-family:sans-serif;text-align:center;padding-top:80px'><h2>{msg}</h2></body></html>")
+
+
+@app.post("/api/spotify/control/{action}")
+async def spotify_control(action: str):
+    return await sp.control(action)
+
+
+@app.get("/api/spotify/play")
+async def spotify_play(q: str):
+    return await sp.search_and_play(q)
 
 
 @app.get("/api/spotify/search")
@@ -371,23 +412,42 @@ async def dashboard(city: str = ""):
         )
         return results
 
+    async def custom_tiles():
+        from ddgs import DDGS
+
+        out = {}
+        for c in prefs.get("custom", []):
+            try:
+                res = await asyncio.to_thread(
+                    lambda q=c["query"]: DDGS().news(q, region="fr-fr", max_results=5)
+                )
+                out[c["id"]] = [
+                    {"title": r["title"], "url": r["url"], "source": r.get("source", "")}
+                    for r in res or []
+                ]
+            except Exception:
+                out[c["id"]] = []
+        return out
+
     async def safe(coro, fallback):
         try:
             return await coro
         except Exception:
             return fallback
 
-    weather_data, sport_data, sorties_data, mail_data = await asyncio.gather(
+    weather_data, sport_data, sorties_data, mail_data, custom_data = await asyncio.gather(
         safe(weather(), {}),
         safe(sport(), []),
         safe(sorties(), ""),
         safe(asyncio.to_thread(_fetch_mailbox), {"configured": False, "messages": []}),
+        safe(custom_tiles(), {}),
     )
     return {
         "weather": weather_data,
         "sport": sport_data,
         "sorties": sorties_data,
         "mail": mail_data,
+        "custom": custom_data,
         "events": get_events()[:5],
         "prefs": prefs,
     }

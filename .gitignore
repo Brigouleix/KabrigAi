@@ -8,3 +8,4 @@ frontend/src-tauri/target/
 backend/kabrig.db
 backend/chroma/
 backend/prefs.json
+backend/spotify_token.json
