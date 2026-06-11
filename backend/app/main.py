@@ -16,7 +16,7 @@ from .tools import TOOL_DEFINITIONS, execute_tool
 
 OLLAMA_URL = "http://localhost:11434"
 MODEL_LIGHT = "qwen2.5:7b"
-MODEL_HEAVY = "qwen2.5:32b"
+MODEL_HEAVY = "qwen2.5:14b"
 MAX_TOOL_ROUNDS = 5
 MEMORY_THRESHOLD = 12  # au-delà, on résume les anciens messages
 MEMORY_KEEP_RECENT = 6  # messages récents conservés tels quels
