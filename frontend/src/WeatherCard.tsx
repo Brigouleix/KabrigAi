@@ -2,11 +2,23 @@ export type WeatherData = {
   city: string;
   country: string;
   temp: number;
+  feels?: number;
   desc: string;
   code: number;
   wind: number;
+  gusts?: number;
   humidity: number;
-  days: { date: string; min: number; max: number; code: number; desc: string }[];
+  uv?: number;
+  sunrise?: string;
+  sunset?: string;
+  days: {
+    date: string;
+    min: number;
+    max: number;
+    code: number;
+    desc: string;
+    rain?: number | null;
+  }[];
 };
 
 function icon(code: number): string {
@@ -37,19 +49,35 @@ export function WeatherCard({ data }: { data: WeatherData }) {
           </div>
           <div className="weather-desc">{data.desc}</div>
         </div>
-        <div className="weather-meta">
-          <span>💨 {data.wind} km/h</span>
-          <span>💧 {data.humidity}%</span>
-        </div>
       </div>
+
+      <div className="weather-grid">
+        {data.feels != null && (
+          <span title="Température ressentie">🌡️ Ressenti {Math.round(data.feels)}°</span>
+        )}
+        <span title="Vent (rafales)">
+          💨 {Math.round(data.wind)}
+          {data.gusts != null && ` (${Math.round(data.gusts)})`} km/h
+        </span>
+        <span title="Humidité">💧 {data.humidity}%</span>
+        {data.uv != null && <span title="Indice UV">😎 UV {Math.round(data.uv)}</span>}
+        {data.sunrise && <span title="Lever du soleil">🌅 {data.sunrise}</span>}
+        {data.sunset && <span title="Coucher du soleil">🌇 {data.sunset}</span>}
+      </div>
+
       <div className="weather-days">
         {data.days.map((d) => (
-          <div key={d.date} className="weather-day">
+          <div key={d.date} className="weather-day" title={d.desc}>
             <span>{dayLabel(d.date)}</span>
             <span>{icon(d.code)}</span>
-            <span>
-              {Math.round(d.min)}° / {Math.round(d.max)}°
+            <span className="weather-minmax">
+              {Math.round(d.min)}°<em>{Math.round(d.max)}°</em>
             </span>
+            {d.rain != null && d.rain > 5 ? (
+              <span className="weather-rain">☔ {d.rain}%</span>
+            ) : (
+              <span className="weather-rain"> </span>
+            )}
           </div>
         ))}
       </div>

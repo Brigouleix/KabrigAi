@@ -362,6 +362,8 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
   }
 
   const [dragKey, setDragKey] = useState<string | null>(null);
+  const dataRef = useRef<Dashboard | null>(null);
+  dataRef.current = data;
 
   function tileClass(tile: string) {
     return `tile size-${data?.prefs.sizes?.[tile] ?? "m"}${dragKey === tile ? " dragging" : ""}`;
@@ -380,28 +382,35 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
         setDragKey(tile);
         e.dataTransfer.effectAllowed = "move";
       },
-      onDragEnd: () => setDragKey(null),
-      onDragOver: (e: React.DragEvent) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-      },
-      onDrop: async (e: React.DragEvent) => {
-        e.preventDefault();
-        if (!dragKey || dragKey === tile || !data) return;
-        const order = [...data.prefs.tiles];
-        const from = order.indexOf(dragKey);
-        const to = order.indexOf(tile);
-        if (from === -1 || to === -1) return;
-        order.splice(from, 1);
-        order.splice(to, 0, dragKey);
-        setData((d) => (d ? { ...d, prefs: { ...d.prefs, tiles: order } } : d));
+      onDragEnd: async () => {
+        // Fin du drag (où qu'il se termine) : on persiste l'ordre courant.
         setDragKey(null);
+        const order = dataRef.current?.prefs.tiles;
+        if (!order) return;
         await fetch(`${BACKEND}/api/prefs`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tiles: order }),
         });
       },
+      onDragOver: (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        // Insertion en direct : la tuile déplacée prend la place survolée,
+        // les autres se décalent immédiatement.
+        if (!dragKey || dragKey === tile) return;
+        setData((d) => {
+          if (!d) return d;
+          const order = [...d.prefs.tiles];
+          const from = order.indexOf(dragKey);
+          const to = order.indexOf(tile);
+          if (from === -1 || to === -1 || from === to) return d;
+          order.splice(from, 1);
+          order.splice(to, 0, dragKey);
+          return { ...d, prefs: { ...d.prefs, tiles: order } };
+        });
+      },
+      onDrop: (e: React.DragEvent) => e.preventDefault(),
     };
   }
 

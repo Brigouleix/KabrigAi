@@ -62,9 +62,11 @@ async def get_weather(city: str) -> tuple[str, dict]:
             params={
                 "latitude": loc["latitude"],
                 "longitude": loc["longitude"],
-                "current": "temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m",
-                "daily": "temperature_2m_max,temperature_2m_min,weather_code",
-                "forecast_days": 3,
+                "current": "temperature_2m,apparent_temperature,weather_code,"
+                "wind_speed_10m,wind_gusts_10m,relative_humidity_2m,uv_index",
+                "daily": "temperature_2m_max,temperature_2m_min,weather_code,"
+                "precipitation_probability_max,sunrise,sunset",
+                "forecast_days": 7,
                 "timezone": "auto",
             },
         )
@@ -86,10 +88,15 @@ async def get_weather(city: str) -> tuple[str, dict]:
         "city": loc["name"],
         "country": loc.get("country", ""),
         "temp": cur["temperature_2m"],
+        "feels": cur.get("apparent_temperature"),
         "desc": WEATHER_CODES.get(cur["weather_code"], ""),
         "code": cur["weather_code"],
         "wind": cur["wind_speed_10m"],
+        "gusts": cur.get("wind_gusts_10m"),
         "humidity": cur["relative_humidity_2m"],
+        "uv": cur.get("uv_index"),
+        "sunrise": (days.get("sunrise") or [""])[0][-5:],
+        "sunset": (days.get("sunset") or [""])[0][-5:],
         "days": [
             {
                 "date": days["time"][i],
@@ -97,6 +104,7 @@ async def get_weather(city: str) -> tuple[str, dict]:
                 "max": days["temperature_2m_max"][i],
                 "code": days["weather_code"][i],
                 "desc": WEATHER_CODES.get(days["weather_code"][i], ""),
+                "rain": (days.get("precipitation_probability_max") or [None] * 7)[i],
             }
             for i in range(len(days["time"]))
         ],
