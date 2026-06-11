@@ -38,7 +38,9 @@ npx tauri dev
 ## Roadmap
 
 - [x] Phase 1 — Socle : chat streamé, routing light/heavy
-- [ ] Phase 2 — Tools MCP : météo, fichiers, notes (SQLite), RAG documents
-- [ ] Phase 3 — UI Jarvis : composants dynamiques, mémoire conversationnelle
-- [ ] Phase 4 — Travel : vols (Amadeus), logements, météo (OpenWeatherMap)
-- [ ] Phase 5 — Polish : mails, tray, raccourcis globaux
+- [x] Phase 2 — Tools : météo (Open-Meteo), notes (SQLite), lecture documents
+- [x] Phase 3 — UI dynamique : carte météo, markdown, mémoire conversationnelle
+- [x] Phase 4 — Travel : liens pré-remplis Google Flights/Kayak/Skyscanner/Booking/Airbnb + bouton stop
+- [ ] Phase 5 — Polish : mails, RAG documents, tray, raccourcis globaux
+
+> Note : l'API Amadeus Self-Service a été écartée (portail décommissionné le 17/07/2026).

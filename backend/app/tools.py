@@ -9,8 +9,6 @@ from pathlib import Path
 
 import httpx
 
-from .travel import TRAVEL_TOOL_DEFINITIONS, search_flights, search_hotels
-
 DB_PATH = Path(__file__).parent.parent / "kabrig.db"
 DOCS_DIR = Path.home() / "Documents"
 
@@ -149,9 +147,9 @@ def read_document(path: str) -> str:
 def travel_links(
     origin: str,
     destination: str,
-    origin_iata: str,
-    destination_iata: str,
     depart: str,
+    origin_iata: str = "",
+    destination_iata: str = "",
     return_date: str = "",
 ) -> str:
     """Génère des liens de recherche pré-remplis (vols + logements)."""
@@ -163,18 +161,18 @@ def travel_links(
     gf_query = f"Flights from {origin} to {destination} on {d}"
     if r:
         gf_query += f" returning {r}"
-    kayak = f"https://www.kayak.fr/flights/{origin_iata}-{destination_iata}/{d}"
-    if r:
-        kayak += f"/{r}"
-    sky = f"https://www.skyscanner.fr/transport/vols/{origin_iata.lower()}/{destination_iata.lower()}/{yymmdd}/"
-    if r:
-        sky += r[2:4] + r[5:7] + r[8:10] + "/"
     lines = [
         f"Liens de recherche {origin} → {destination} ({d}{' / retour ' + r if r else ''}) :",
         f"- [Google Flights](https://www.google.com/travel/flights?q={quote(gf_query)})",
-        f"- [Kayak]({kayak})",
-        f"- [Skyscanner]({sky})",
     ]
+    if origin_iata and destination_iata:
+        kayak = f"https://www.kayak.fr/flights/{origin_iata}-{destination_iata}/{d}"
+        if r:
+            kayak += f"/{r}"
+        sky = f"https://www.skyscanner.fr/transport/vols/{origin_iata.lower()}/{destination_iata.lower()}/{yymmdd}/"
+        if r:
+            sky += r[2:4] + r[5:7] + r[8:10] + "/"
+        lines += [f"- [Kayak]({kayak})", f"- [Skyscanner]({sky})"]
     if r:
         lines += [
             f"- [Booking](https://www.booking.com/searchresults.fr.html?ss={quote(destination)}&checkin={d}&checkout={r})",
@@ -202,12 +200,12 @@ TOOL_DEFINITIONS = [
                 "properties": {
                     "origin": {"type": "string", "description": "Ville de départ"},
                     "destination": {"type": "string", "description": "Ville d'arrivée"},
-                    "origin_iata": {"type": "string", "description": "Code IATA départ, ex: PAR"},
-                    "destination_iata": {"type": "string", "description": "Code IATA arrivée, ex: LIS"},
+                    "origin_iata": {"type": "string", "description": "Code IATA départ si connu, ex: PAR"},
+                    "destination_iata": {"type": "string", "description": "Code IATA arrivée si connu, ex: LIS"},
                     "depart": {"type": "string", "description": "Date aller YYYY-MM-DD"},
                     "return_date": {"type": "string", "description": "Date retour YYYY-MM-DD, optionnel"},
                 },
-                "required": ["origin", "destination", "origin_iata", "destination_iata", "depart"],
+                "required": ["origin", "destination", "depart"],
             },
         },
     },
@@ -295,7 +293,7 @@ TOOL_DEFINITIONS = [
             },
         },
     },
-] + TRAVEL_TOOL_DEFINITIONS
+]
 
 
 async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
@@ -304,10 +302,6 @@ async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
         if name == "get_weather":
             text, widget = await get_weather(**args)
             return text, {"widget": "weather", "data": widget} if widget else None
-        if name == "search_flights":
-            return await search_flights(**args)
-        if name == "search_hotels":
-            return await search_hotels(**args)
         sync = {
             "travel_links": travel_links,
             "create_note": create_note,

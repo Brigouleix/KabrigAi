@@ -21,7 +21,6 @@ function ExternalLink(props: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
   );
 }
 import { WeatherCard, type WeatherData } from "./WeatherCard";
-import { FlightCard, type FlightData } from "./FlightCard";
 import "./App.css";
 
 const BACKEND = "http://localhost:8000";
@@ -32,7 +31,6 @@ type Message = {
   model?: string;
   tools?: string[];
   weather?: WeatherData;
-  flights?: FlightData;
 };
 
 function App() {
@@ -95,7 +93,6 @@ function App() {
             if (evt.type === "token") last.content += evt.content;
             if (evt.type === "tool") last.tools = [...(last.tools ?? []), evt.name];
             if (evt.type === "widget" && evt.widget === "weather") last.weather = evt.data;
-            if (evt.type === "widget" && evt.widget === "flights") last.flights = evt.data;
             next[next.length - 1] = last;
             return next;
           });
@@ -144,7 +141,6 @@ function App() {
               <span key={j} className="tool">🔧 {t}</span>
             ))}
             {m.weather && <WeatherCard data={m.weather} />}
-            {m.flights && <FlightCard data={m.flights} />}
             {m.role === "assistant" ? (
               m.content ? (
                 <Markdown components={{ a: ExternalLink }}>{m.content}</Markdown>
