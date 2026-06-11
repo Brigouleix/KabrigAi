@@ -255,6 +255,27 @@ async def prefs_set(p: PrefsIn):
     return set_prefs(p.city, p.sports, p.tiles, p.spotify)
 
 
+@app.get("/api/spotify/search")
+async def spotify_search(q: str):
+    """Trouve un titre/album/artiste Spotify par son nom et le met dans la tuile."""
+    import re
+
+    from ddgs import DDGS
+
+    results = await asyncio.to_thread(
+        lambda: DDGS().text(f"site:open.spotify.com {q}", max_results=10)
+    )
+    for r in results or []:
+        m = re.search(
+            r"open\.spotify\.com/(?:intl-\w+/)?(track|album|playlist|artist)/([A-Za-z0-9]+)",
+            r.get("href", ""),
+        )
+        if m:
+            url = f"https://open.spotify.com/{m.group(1)}/{m.group(2)}"
+            return set_prefs(spotify=url)
+    return get_prefs()
+
+
 def _fetch_mailbox() -> dict:
     """Derniers mails non lus via Gmail IMAP (mêmes identifiants que l'envoi)."""
     import email

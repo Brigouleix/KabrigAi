@@ -437,16 +437,21 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                 )}
                 <input
                   className="spotify-input"
-                  placeholder="Coller un lien playlist/album Spotify…"
+                  placeholder="🔍 Titre, artiste, album… ou colle un lien Spotify"
                   onKeyDown={async (e) => {
-                    if (e.key === "Enter") {
+                    if (e.key !== "Enter") return;
+                    const value = e.currentTarget.value.trim();
+                    if (!value) return;
+                    if (value.includes("open.spotify.com")) {
                       await fetch(`${BACKEND}/api/prefs`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ spotify: e.currentTarget.value }),
+                        body: JSON.stringify({ spotify: value }),
                       });
-                      load();
+                    } else {
+                      await fetch(`${BACKEND}/api/spotify/search?q=${encodeURIComponent(value)}`);
                     }
+                    load();
                   }}
                 />
               </section>
