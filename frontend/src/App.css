@@ -75,6 +75,16 @@ main {
   border: 1px solid #21262d;
 }
 
+.tool {
+  display: inline-block;
+  font-size: 11px;
+  color: #d29922;
+  background: #2d2305;
+  border-radius: 8px;
+  padding: 2px 8px;
+  margin: 0 4px 6px 0;
+}
+
 .model {
   display: block;
   font-size: 10px;

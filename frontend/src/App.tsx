@@ -3,7 +3,12 @@ import "./App.css";
 
 const BACKEND = "http://localhost:8000";
 
-type Message = { role: "user" | "assistant"; content: string; model?: string };
+type Message = {
+  role: "user" | "assistant";
+  content: string;
+  model?: string;
+  tools?: string[];
+};
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -58,6 +63,7 @@ function App() {
             const last = { ...next[next.length - 1] };
             if (evt.type === "model") last.model = evt.model;
             if (evt.type === "token") last.content += evt.content;
+            if (evt.type === "tool") last.tools = [...(last.tools ?? []), evt.name];
             next[next.length - 1] = last;
             return next;
           });
@@ -92,6 +98,9 @@ function App() {
         {messages.map((m, i) => (
           <div key={i} className={`msg ${m.role}`}>
             {m.model && <span className="model">{m.model}</span>}
+            {m.tools?.map((t, j) => (
+              <span key={j} className="tool">🔧 {t}</span>
+            ))}
             <p>{m.content || (busy && i === messages.length - 1 ? "…" : "")}</p>
           </div>
         ))}

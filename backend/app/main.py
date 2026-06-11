@@ -2,7 +2,7 @@
 
 Deux LLMs locaux via Ollama :
 - LIGHT : routage, classification, tâches rapides
-- HEAVY : synthèse, rédaction, raisonnement
+- HEAVY : synthèse, rédaction, raisonnement, tool calling complexe
 """
 import json
 
@@ -12,15 +12,30 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from .tools import TOOL_DEFINITIONS, execute_tool
+
 OLLAMA_URL = "http://localhost:11434"
 MODEL_LIGHT = "qwen2.5:7b"
 MODEL_HEAVY = "qwen2.5:32b"
+MAX_TOOL_ROUNDS = 5
+
+SYSTEM_PROMPT = (
+    "Tu es Kabrig, l'assistant personnel d'Antoine. Tu réponds en français, "
+    "de façon concise et utile. Tu as accès à des outils : météo, notes, "
+    "lecture de documents. Utilise-les quand c'est pertinent, sans demander "
+    "la permission."
+)
 
 app = FastAPI(title="Kabrig AI")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:1420", "tauri://localhost"],
+    allow_origins=[
+        "http://localhost:1420",
+        "http://localhost:5173",
+        "http://tauri.localhost",
+        "tauri://localhost",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -52,7 +67,7 @@ async def route_query(messages: list[ChatMessage]) -> str:
     last = messages[-1].content
     prompt = (
         "Tu es un routeur. Réponds uniquement par LIGHT ou HEAVY.\n"
-        "LIGHT : salutations, questions simples, organisation, listes.\n"
+        "LIGHT : salutations, questions simples, météo, gestion de notes.\n"
         "HEAVY : rédaction, synthèse de documents, raisonnement complexe.\n"
         f"Requête : {last}"
     )
@@ -60,7 +75,7 @@ async def route_query(messages: list[ChatMessage]) -> str:
         r = await client.post(
             f"{OLLAMA_URL}/api/generate",
             json={"model": MODEL_LIGHT, "prompt": prompt, "stream": False},
-            timeout=30,
+            timeout=60,
         )
     answer = r.json().get("response", "").strip().upper()
     return MODEL_HEAVY if "HEAVY" in answer else MODEL_LIGHT
@@ -68,21 +83,55 @@ async def route_query(messages: list[ChatMessage]) -> str:
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
-    """Chat streamé : route vers le bon modèle puis stream la réponse."""
+    """Chat avec tool calling : boucle tools (non-streamé) puis réponse streamée."""
     model = await route_query(req.messages)
+    convo = [{"role": "system", "content": SYSTEM_PROMPT}] + [
+        m.model_dump() for m in req.messages
+    ]
 
     async def stream():
         yield json.dumps({"type": "model", "model": model}) + "\n"
-        async with httpx.AsyncClient() as client:
+
+        async with httpx.AsyncClient(timeout=None) as client:
+            # Boucle de tool calling : tant que le LLM demande des tools.
+            for _ in range(MAX_TOOL_ROUNDS):
+                r = await client.post(
+                    f"{OLLAMA_URL}/api/chat",
+                    json={
+                        "model": model,
+                        "messages": convo,
+                        "tools": TOOL_DEFINITIONS,
+                        "stream": False,
+                    },
+                )
+                msg = r.json().get("message", {})
+                tool_calls = msg.get("tool_calls")
+                if not tool_calls:
+                    # Pas de tool : si une réponse texte existe déjà, on l'émet.
+                    if msg.get("content"):
+                        yield json.dumps(
+                            {"type": "token", "content": msg["content"]}
+                        ) + "\n"
+                        yield json.dumps({"type": "done"}) + "\n"
+                        return
+                    break
+
+                convo.append(msg)
+                for call in tool_calls:
+                    fn = call["function"]
+                    name = fn["name"]
+                    args = fn.get("arguments") or {}
+                    if isinstance(args, str):
+                        args = json.loads(args)
+                    yield json.dumps({"type": "tool", "name": name, "args": args}) + "\n"
+                    result = await execute_tool(name, args)
+                    convo.append({"role": "tool", "content": result})
+
+            # Réponse finale streamée (sans tools pour forcer la synthèse).
             async with client.stream(
                 "POST",
                 f"{OLLAMA_URL}/api/chat",
-                json={
-                    "model": model,
-                    "messages": [m.model_dump() for m in req.messages],
-                    "stream": True,
-                },
-                timeout=None,
+                json={"model": model, "messages": convo, "stream": True},
             ) as r:
                 async for line in r.aiter_lines():
                     if not line:
@@ -91,6 +140,7 @@ async def chat(req: ChatRequest):
                     content = data.get("message", {}).get("content", "")
                     if content:
                         yield json.dumps({"type": "token", "content": content}) + "\n"
+
         yield json.dumps({"type": "done"}) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
