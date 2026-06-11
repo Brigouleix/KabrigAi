@@ -41,6 +41,7 @@ npx tauri dev
 - [x] Phase 2 — Tools : météo (Open-Meteo), notes (SQLite), lecture documents
 - [x] Phase 3 — UI dynamique : carte météo, markdown, mémoire conversationnelle
 - [x] Phase 4 — Travel : liens pré-remplis Google Flights/Kayak/Skyscanner/Booking/Airbnb + bouton stop
-- [ ] Phase 5 — Polish : mails, RAG documents, tray, raccourcis globaux
+- [x] Phase 5 — recherche internet (DuckDuckGo), lecture de pages web, envoi de mails (Gmail), tray + raccourci global Ctrl+Espace
+- [ ] Phase 6 — RAG documents (PDF, ChromaDB)
 
 > Note : l'API Amadeus Self-Service a été écartée (portail décommissionné le 17/07/2026).

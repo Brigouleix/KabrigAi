@@ -144,6 +144,60 @@ def read_document(path: str) -> str:
     return text[:20000] + ("\n[... tronqué]" if len(text) > 20000 else "")
 
 
+def web_search(query: str, max_results: int = 6) -> str:
+    """Recherche DuckDuckGo (gratuit, sans clé)."""
+    from ddgs import DDGS
+
+    results = DDGS().text(query, region="fr-fr", max_results=max_results)
+    if not results:
+        return "Aucun résultat."
+    return "\n\n".join(
+        f"[{r['title']}]({r['href']})\n{r['body']}" for r in results
+    )
+
+
+async def read_webpage(url: str) -> str:
+    """Télécharge une page web et la convertit en texte brut."""
+    import re
+
+    async with httpx.AsyncClient(
+        timeout=15, follow_redirects=True,
+        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+    ) as client:
+        r = await client.get(url)
+    html = r.text
+    html = re.sub(r"<(script|style|nav|footer|header)[^>]*>.*?</\1>", " ", html, flags=re.S | re.I)
+    text = re.sub(r"<[^>]+>", " ", html)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:15000] + ("\n[... tronqué]" if len(text) > 15000 else "")
+
+
+def send_email(to: str, subject: str, body: str) -> str:
+    """Envoie un email via Gmail SMTP (GMAIL_ADDRESS + GMAIL_APP_PASSWORD dans .env)."""
+    import os
+    import smtplib
+    from email.mime.text import MIMEText
+
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).parent.parent / ".env")
+    sender = os.getenv("GMAIL_ADDRESS")
+    password = os.getenv("GMAIL_APP_PASSWORD")
+    if not sender or not password:
+        return (
+            "Email non configuré : Antoine doit mettre GMAIL_ADDRESS et "
+            "GMAIL_APP_PASSWORD (mot de passe d'application Google) dans backend/.env"
+        )
+    msg = MIMEText(body, "plain", "utf-8")
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = to
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        smtp.login(sender, password)
+        smtp.send_message(msg)
+    return f"Email envoyé à {to}."
+
+
 def travel_links(
     origin: str,
     destination: str,
@@ -185,6 +239,49 @@ def travel_links(
 
 
 TOOL_DEFINITIONS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Recherche sur internet (DuckDuckGo). À utiliser pour toute question d'actualité ou information que tu ne connais pas.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Requête de recherche"},
+                    "max_results": {"type": "integer", "description": "Défaut 6"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_webpage",
+            "description": "Lit le contenu texte d'une page web à partir de son URL (pour approfondir un résultat de recherche).",
+            "parameters": {
+                "type": "object",
+                "properties": {"url": {"type": "string"}},
+                "required": ["url"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_email",
+            "description": "Envoie un email. IMPORTANT : toujours montrer le brouillon à l'utilisateur et attendre sa confirmation explicite avant d'appeler ce tool.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "to": {"type": "string", "description": "Adresse du destinataire"},
+                    "subject": {"type": "string"},
+                    "body": {"type": "string", "description": "Corps du mail en texte"},
+                },
+                "required": ["to", "subject", "body"],
+            },
+        },
+    },
     {
         "type": "function",
         "function": {
@@ -302,7 +399,11 @@ async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
         if name == "get_weather":
             text, widget = await get_weather(**args)
             return text, {"widget": "weather", "data": widget} if widget else None
+        if name == "read_webpage":
+            return await read_webpage(**args), None
         sync = {
+            "web_search": web_search,
+            "send_email": send_email,
             "travel_links": travel_links,
             "create_note": create_note,
             "list_notes": list_notes,

@@ -27,9 +27,11 @@ def system_prompt() -> str:
     return (
         "Tu es Kabrig, l'assistant personnel d'Antoine. Tu réponds en français, "
         "de façon concise et utile. Tu as accès à des outils : météo, notes, "
-        "lecture de documents, liens de recherche voyage (vols et logements). "
-        "Utilise-les quand "
-        "c'est pertinent, sans demander la permission. "
+        "lecture de documents, liens de recherche voyage (vols et logements), "
+        "recherche internet (web_search puis read_webpage pour approfondir), "
+        "envoi d'emails. Utilise-les quand c'est pertinent, sans demander la "
+        "permission — SAUF send_email : montre toujours le brouillon et attends "
+        "la confirmation d'Antoine avant d'envoyer. "
         f"Nous sommes le {date.today().isoformat()}."
     )
 
@@ -74,9 +76,10 @@ async def route_query(messages: list[ChatMessage]) -> str:
     last = messages[-1].content
     prompt = (
         "Tu es un routeur. Réponds uniquement par LIGHT ou HEAVY.\n"
-        "LIGHT : salutations, questions simples, météo, gestion de notes.\n"
-        "HEAVY : rédaction, synthèse de documents, raisonnement complexe, "
-        "recherche de vols ou d'hôtels.\n"
+        "LIGHT : salutations, questions simples, météo, gestion de notes, "
+        "recherche internet simple.\n"
+        "HEAVY : rédaction (mails, textes), synthèse de documents ou de pages "
+        "web, raisonnement complexe, recherche de vols ou d'hôtels.\n"
         f"Requête : {last}"
     )
     async with httpx.AsyncClient() as client:
