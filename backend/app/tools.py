@@ -9,6 +9,14 @@ from pathlib import Path
 
 import httpx
 
+from .rag import (
+    RAG_TOOL_DEFINITIONS,
+    extract_text,
+    index_document,
+    list_indexed,
+    search_documents,
+)
+
 DB_PATH = Path(__file__).parent.parent / "kabrig.db"
 DOCS_DIR = Path.home() / "Documents"
 
@@ -138,9 +146,10 @@ def read_document(path: str) -> str:
     target = (DOCS_DIR / path).resolve()
     if not target.is_relative_to(DOCS_DIR) or not target.is_file():
         return "Fichier introuvable (accès limité à Documents)."
-    if target.suffix.lower() not in {".txt", ".md", ".csv", ".json", ".log"}:
-        return f"Format non supporté ({target.suffix}). Formats : txt, md, csv, json, log."
-    text = target.read_text(encoding="utf-8", errors="replace")
+    try:
+        text = extract_text(target)
+    except ValueError as e:
+        return str(e)
     return text[:20000] + ("\n[... tronqué]" if len(text) > 20000 else "")
 
 
@@ -382,7 +391,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "read_document",
-            "description": "Lit un fichier texte du dossier Documents (txt, md, csv, json, log) pour le synthétiser.",
+            "description": "Lit un fichier du dossier Documents (pdf, docx, txt, md, csv, json, log) pour le synthétiser.",
             "parameters": {
                 "type": "object",
                 "properties": {"path": {"type": "string", "description": "Chemin relatif à Documents"}},
@@ -390,7 +399,7 @@ TOOL_DEFINITIONS = [
             },
         },
     },
-]
+] + RAG_TOOL_DEFINITIONS
 
 
 async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
@@ -401,6 +410,12 @@ async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
             return text, {"widget": "weather", "data": widget} if widget else None
         if name == "read_webpage":
             return await read_webpage(**args), None
+        if name == "index_document":
+            return await index_document(**args), None
+        if name == "search_documents":
+            return await search_documents(**args), None
+        if name == "list_indexed":
+            return list_indexed(), None
         sync = {
             "web_search": web_search,
             "send_email": send_email,
