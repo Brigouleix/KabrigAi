@@ -9,6 +9,8 @@ from pathlib import Path
 
 import httpx
 
+from .agenda import AGENDA_TOOL_DEFINITIONS, create_event, delete_event, list_events
+from .documents import DOCUMENT_TOOL_DEFINITION, create_document
 from .routing import ROUTE_TOOL_DEFINITION, get_route
 from .rag import (
     RAG_TOOL_DEFINITIONS,
@@ -47,12 +49,13 @@ async def get_weather(city: str) -> tuple[str, dict]:
     async with httpx.AsyncClient(timeout=10) as client:
         geo = await client.get(
             "https://geocoding-api.open-meteo.com/v1/search",
-            params={"name": city, "count": 1, "language": "fr"},
+            params={"name": city, "count": 5, "language": "fr"},
         )
         results = geo.json().get("results")
         if not results:
             return f"Ville introuvable : {city}", {}
-        loc = results[0]
+        # À nom égal, on privilégie la France (Brest, Bretagne != Brest, Biélorussie).
+        loc = next((r for r in results if r.get("country_code") == "FR"), results[0])
         meteo = await client.get(
             "https://api.open-meteo.com/v1/forecast",
             params={
@@ -400,7 +403,7 @@ TOOL_DEFINITIONS = [
             },
         },
     },
-] + RAG_TOOL_DEFINITIONS + [ROUTE_TOOL_DEFINITION]
+] + RAG_TOOL_DEFINITIONS + [ROUTE_TOOL_DEFINITION, DOCUMENT_TOOL_DEFINITION] + AGENDA_TOOL_DEFINITIONS
 
 
 async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
@@ -420,6 +423,10 @@ async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
         if name == "list_indexed":
             return list_indexed(), None
         sync = {
+            "create_document": create_document,
+            "create_event": create_event,
+            "list_events": list_events,
+            "delete_event": delete_event,
             "web_search": web_search,
             "send_email": send_email,
             "travel_links": travel_links,

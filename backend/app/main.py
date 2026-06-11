@@ -4,15 +4,18 @@ Deux LLMs locaux via Ollama :
 - LIGHT : routage, classification, tâches rapides
 - HEAVY : synthèse, rédaction, raisonnement, tool calling complexe
 """
+import asyncio
 import json
+from pathlib import Path
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from .tools import TOOL_DEFINITIONS, execute_tool
+from .agenda import create_event as agenda_create, delete_event as agenda_delete, get_events
+from .tools import TOOL_DEFINITIONS, execute_tool, get_weather, web_search
 
 OLLAMA_URL = "http://localhost:11434"
 MODEL_LIGHT = "qwen2.5:7b"
@@ -31,7 +34,9 @@ def system_prompt() -> str:
         "recherche internet (web_search puis read_webpage pour approfondir), "
         "RAG sur les documents (index_document une fois, puis search_documents "
         "pour répondre aux questions sur leur contenu), "
-        "envoi d'emails, itinéraires (get_route). Utilise-les quand c'est pertinent, sans demander la "
+        "envoi d'emails, itinéraires (get_route), création de PDF/Word "
+        "(create_document), agenda (create_event/list_events/delete_event). "
+        "Utilise-les quand c'est pertinent, sans demander la "
         "permission — SAUF send_email : montre toujours le brouillon et attends "
         "la confirmation d'Antoine avant d'envoyer. "
         f"Nous sommes le {date.today().isoformat()}."
@@ -184,3 +189,83 @@ async def chat(req: ChatRequest):
         yield json.dumps({"type": "done"}) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+UPLOAD_DIR = Path.home() / "Documents" / "Kabrig" / "imports"
+
+
+@app.post("/api/upload")
+async def upload(file: UploadFile):
+    """Reçoit un fichier importé depuis l'UI, le sauve dans Documents/Kabrig/imports."""
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    target = UPLOAD_DIR / Path(file.filename or "import").name
+    target.write_bytes(await file.read())
+    rel = str(target.relative_to(Path.home() / "Documents"))
+    return {"saved": rel}
+
+
+class EventIn(BaseModel):
+    title: str
+    date: str
+    time: str = ""
+    location: str = ""
+    notes: str = ""
+
+
+@app.get("/api/agenda")
+async def agenda_list(include_past: bool = False):
+    return {"events": get_events(include_past)}
+
+
+@app.post("/api/agenda")
+async def agenda_add(event: EventIn):
+    agenda_create(**event.model_dump())
+    return {"events": get_events()}
+
+
+@app.delete("/api/agenda/{event_id}")
+async def agenda_remove(event_id: int):
+    agenda_delete(event_id)
+    return {"events": get_events()}
+
+
+@app.get("/api/dashboard")
+async def dashboard(city: str = "Brest"):
+    """Agrège les tuiles de l'accueil : météo, sport, sorties, agenda."""
+
+    async def weather():
+        _, widget = await get_weather(city)
+        return widget
+
+    async def sport():
+        from ddgs import DDGS
+
+        results = await asyncio.to_thread(
+            lambda: DDGS().news("résultats football rugby tennis basket", region="fr-fr", max_results=6)
+        )
+        return [
+            {"title": r["title"], "url": r["url"], "source": r.get("source", "")}
+            for r in results or []
+        ]
+
+    async def sorties():
+        results = await asyncio.to_thread(
+            lambda: web_search(f"idées sortie activités weekend {city}", max_results=4)
+        )
+        return results
+
+    async def safe(coro, fallback):
+        try:
+            return await coro
+        except Exception:
+            return fallback
+
+    weather_data, sport_data, sorties_data = await asyncio.gather(
+        safe(weather(), {}), safe(sport(), []), safe(sorties(), "")
+    )
+    return {
+        "weather": weather_data,
+        "sport": sport_data,
+        "sorties": sorties_data,
+        "events": get_events()[:5],
+    }
