@@ -12,6 +12,8 @@ VALID_SPORTS = ["tous", "football", "rugby", "tennis", "basket", "cyclisme", "fo
 VALID_TILES = ["weather", "agenda", "sport", "sorties", "mail", "spotify", "whatsapp"]
 
 DEFAULTS = {
+    "user_name": "Antoine",
+    "ai_name": "Kabrig",
     "city": "Brest",
     "sports": ["tous"],
     "tiles": ["weather", "agenda", "sport", "sorties", "mail", "spotify", "whatsapp"],
@@ -56,10 +58,22 @@ def set_prefs(
     sizes: dict | None = None,
     add_tile: dict | None = None,
     remove_tile: str | None = None,
+    show_tile: str | None = None,
+    hide_tile: str | None = None,
+    reset_tiles: bool = False,
+    user_name: str | None = None,
+    ai_name: str | None = None,
 ) -> dict:
     prefs = get_prefs()
     if city:
         prefs["city"] = city.strip()
+    if user_name:
+        prefs["user_name"] = user_name.strip()
+    if ai_name:
+        prefs["ai_name"] = ai_name.strip()
+    if reset_tiles:
+        prefs["tiles"] = list(DEFAULTS["tiles"]) + [f"custom:{c['id']}" for c in prefs["custom"]]
+        prefs["sizes"] = {}
     if spotify and "open.spotify.com" in spotify:
         prefs["spotify"] = spotify.strip()
     if sports is not None:
@@ -81,8 +95,17 @@ def set_prefs(
             t for t in prefs["tiles"] if t not in (remove_tile, f"custom:{rid}")
         ]
     custom_ids = {f"custom:{c['id']}" for c in prefs["custom"]}
+    if hide_tile:
+        prefs["tiles"] = [t for t in prefs["tiles"] if t != hide_tile]
+    if show_tile and (show_tile in VALID_TILES or show_tile in custom_ids):
+        if show_tile not in prefs["tiles"]:
+            prefs["tiles"].append(show_tile)
     if tiles is not None:
-        prefs["tiles"] = [t for t in tiles if t in VALID_TILES or t in custom_ids]
+        valid = [t for t in tiles if t in VALID_TILES or t in custom_ids]
+        # Garde-fou : on n'accepte une liste complète que si elle ne vide pas
+        # tout (le LLM envoyait des listes partielles et écrasait l'accueil).
+        if valid:
+            prefs["tiles"] = valid
     if sizes is not None:
         prefs["sizes"] = {
             k: v for k, v in sizes.items() if v in ("s", "m", "l")
@@ -94,11 +117,15 @@ def set_prefs(
 def update_preferences(
     city: str = "",
     sports: list[str] | None = None,
-    tiles: list[str] | None = None,
     spotify: str = "",
     add_tile_title: str = "",
     add_tile_query: str = "",
     remove_tile: str = "",
+    show_tile: str = "",
+    hide_tile: str = "",
+    reset_tiles: bool = False,
+    user_name: str = "",
+    ai_name: str = "",
 ) -> str:
     add = (
         {"title": add_tile_title, "query": add_tile_query}
@@ -106,8 +133,11 @@ def update_preferences(
         else None
     )
     prefs = set_prefs(
-        city or None, sports, tiles, spotify or None,
+        city or None, sports, None, spotify or None,
         add_tile=add, remove_tile=remove_tile or None,
+        show_tile=show_tile or None, hide_tile=hide_tile or None,
+        reset_tiles=reset_tiles,
+        user_name=user_name or None, ai_name=ai_name or None,
     )
     customs = ", ".join(c["title"] for c in prefs["custom"]) or "aucune"
     return (
@@ -138,14 +168,28 @@ PREFS_TOOL_DEFINITION = {
                     "items": {"type": "string", "enum": VALID_SPORTS},
                     "description": "Sports à suivre",
                 },
-                "tiles": {
-                    "type": "array",
-                    "items": {"type": "string", "enum": VALID_TILES},
+                "show_tile": {
+                    "type": "string",
                     "description": (
-                        "Tuiles à afficher, dans l'ordre voulu. Omettre une tuile la masque. "
-                        "weather=météo, agenda, sport, sorties=idées de sortie, "
-                        "mail=boîte Gmail, spotify=lecteur, whatsapp"
+                        "Affiche UNE tuile masquée. Valeurs : weather (météo), agenda, "
+                        "sport, sorties, mail, spotify, whatsapp, ou custom:<id>"
                     ),
+                },
+                "hide_tile": {
+                    "type": "string",
+                    "description": "Masque UNE tuile (mêmes valeurs que show_tile). Les autres restent en place.",
+                },
+                "reset_tiles": {
+                    "type": "boolean",
+                    "description": "Rétablit toutes les tuiles par défaut (ordre et tailles inclus)",
+                },
+                "user_name": {
+                    "type": "string",
+                    "description": "Nom par lequel l'assistant appelle l'utilisateur",
+                },
+                "ai_name": {
+                    "type": "string",
+                    "description": "Nouveau nom de l'assistant",
                 },
                 "spotify": {
                     "type": "string",

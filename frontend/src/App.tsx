@@ -77,7 +77,17 @@ function spotifyEmbedUrl(url: string): string | null {
 
 const ALL_SPORTS = ["tous", "football", "rugby", "tennis", "basket", "cyclisme", "formule 1"];
 
-type Tab = "accueil" | "chat" | "agenda";
+type Tab = "accueil" | "chat" | "agenda" | "reglages";
+
+const TILE_LABELS: Record<string, string> = {
+  weather: "🌤️ Météo",
+  agenda: "📅 Agenda",
+  sport: "🏉 Sport",
+  sorties: "🎉 Idées de sortie",
+  mail: "📬 Boîte mail",
+  spotify: "🎵 Spotify",
+  whatsapp: "💬 WhatsApp",
+};
 
 /* ---------------- Chat ---------------- */
 
@@ -778,6 +788,109 @@ function AgendaView() {
   );
 }
 
+/* ---------------- Réglages ---------------- */
+
+function SettingsView() {
+  const [prefs, setPrefs] = useState<Prefs & { user_name?: string; ai_name?: string } | null>(null);
+  const [names, setNames] = useState({ user_name: "", ai_name: "" });
+  const [saved, setSaved] = useState(false);
+
+  async function refresh() {
+    const res = await fetch(`${BACKEND}/api/prefs`);
+    const p = await res.json();
+    setPrefs(p);
+    setNames({ user_name: p.user_name ?? "", ai_name: p.ai_name ?? "" });
+  }
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  async function post(body: object) {
+    await fetch(`${BACKEND}/api/prefs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    refresh();
+  }
+
+  async function saveNames() {
+    await post(names);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  if (!prefs) return <main className="settings"><p className="tile-empty">Chargement…</p></main>;
+
+  const allTiles: { key: string; label: string }[] = [
+    ...Object.entries(TILE_LABELS).map(([key, label]) => ({ key, label })),
+    ...prefs.custom.map((c) => ({ key: `custom:${c.id}`, label: `📌 ${c.title}` })),
+  ];
+
+  return (
+    <main className="settings">
+      <div className="tile">
+        <h3>👤 Personnalisation</h3>
+        <div className="settings-row">
+          <label>
+            Ton prénom (l'IA t'appellera ainsi)
+            <input
+              value={names.user_name}
+              onChange={(e) => setNames({ ...names, user_name: e.target.value })}
+            />
+          </label>
+          <label>
+            Nom de l'assistant
+            <input
+              value={names.ai_name}
+              onChange={(e) => setNames({ ...names, ai_name: e.target.value })}
+            />
+          </label>
+          <button className="save-btn" onClick={saveNames}>
+            {saved ? "✓ Enregistré" : "Enregistrer"}
+          </button>
+        </div>
+      </div>
+
+      <div className="tile">
+        <h3>🧩 Mes tuiles</h3>
+        <p className="tile-empty" style={{ marginBottom: 12 }}>
+          Active ou désactive chaque tuile de l'accueil. L'ordre se règle par glisser-déposer
+          sur l'accueil.
+        </p>
+        <ul className="tile-toggles">
+          {allTiles.map(({ key, label }) => {
+            const active = prefs.tiles.includes(key);
+            return (
+              <li key={key}>
+                <span>{label}</span>
+                <button
+                  className={`switch ${active ? "on" : ""}`}
+                  onClick={() => post(active ? { hide_tile: key } : { show_tile: key })}
+                  aria-label={active ? "Désactiver" : "Activer"}
+                >
+                  <span className="knob" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <button
+          className="reset-btn"
+          onClick={() => {
+            if (confirm("Rétablir les tuiles, l'ordre et les tailles par défaut ?")) {
+              post({ reset_tiles: true });
+            }
+          }}
+        >
+          ↩ Rétablir les tuiles par défaut
+        </button>
+      </div>
+    </main>
+  );
+}
+
 /* ---------------- App ---------------- */
 
 function App() {
@@ -804,9 +917,9 @@ function App() {
       <header>
         <h1>⚡ Kabrig</h1>
         <nav>
-          {(["accueil", "chat", "agenda"] as Tab[]).map((t) => (
+          {(["accueil", "chat", "agenda", "reglages"] as Tab[]).map((t) => (
             <button key={t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>
-              {t === "accueil" ? "Accueil" : t === "chat" ? "Chat" : "Agenda"}
+              {t === "accueil" ? "Accueil" : t === "chat" ? "Chat" : t === "agenda" ? "Agenda" : "⚙️"}
             </button>
           ))}
         </nav>
@@ -827,6 +940,7 @@ function App() {
         />
       )}
       {tab === "agenda" && <AgendaView />}
+      {tab === "reglages" && <SettingsView />}
     </div>
   );
 }

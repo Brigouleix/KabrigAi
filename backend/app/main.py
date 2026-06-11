@@ -30,8 +30,11 @@ MEMORY_KEEP_RECENT = 6  # messages récents conservés tels quels
 def system_prompt() -> str:
     from datetime import date
 
+    prefs = get_prefs()
+    ai, user = prefs["ai_name"], prefs["user_name"]
     return (
-        "Tu es Kabrig, l'assistant personnel d'Antoine. Tu réponds en français, "
+        f"Tu es {ai}, l'assistant personnel de {user} (appelle-le {user}). "
+        "Tu réponds en français, "
         "de façon concise et utile. Tu as accès à des outils : météo, notes, "
         "lecture de documents, liens de recherche voyage (vols et logements), "
         "recherche internet (web_search puis read_webpage pour approfondir), "
@@ -41,7 +44,9 @@ def system_prompt() -> str:
         "(create_document), agenda (create_event/list_events/delete_event). "
         "Utilise-les quand c'est pertinent, sans demander la "
         "permission — SAUF send_email : montre toujours le brouillon et attends "
-        "la confirmation d'Antoine avant d'envoyer. "
+        f"la confirmation de {user} avant d'envoyer. "
+        "Pour l'accueil, modifie les tuiles UNE par UNE avec show_tile/hide_tile, "
+        "jamais en bloc. "
         "Pour TOUTE question finance/crypto/bourse : commence OBLIGATOIREMENT par "
         "crypto_data, stock_data ou market_overview (vraies données chiffrées : "
         "prix, RSI, SMA, volatilité), puis complète avec web_search pour "
@@ -255,6 +260,11 @@ class PrefsIn(BaseModel):
     sizes: dict | None = None
     add_tile: dict | None = None
     remove_tile: str | None = None
+    show_tile: str | None = None
+    hide_tile: str | None = None
+    reset_tiles: bool = False
+    user_name: str | None = None
+    ai_name: str | None = None
 
 
 @app.get("/api/prefs")
@@ -267,6 +277,8 @@ async def prefs_set(p: PrefsIn):
     return set_prefs(
         p.city, p.sports, p.tiles, p.spotify,
         sizes=p.sizes, add_tile=p.add_tile, remove_tile=p.remove_tile,
+        show_tile=p.show_tile, hide_tile=p.hide_tile, reset_tiles=p.reset_tiles,
+        user_name=p.user_name, ai_name=p.ai_name,
     )
 
 
