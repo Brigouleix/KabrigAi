@@ -466,6 +466,15 @@ footer button:disabled {
   margin-bottom: 16px;
   overflow-y: auto;
   scrollbar-width: thin;
+  cursor: grab;
+  transition: box-shadow 0.15s, opacity 0.15s, transform 0.15s;
+}
+
+.tiles .tile.dragging {
+  opacity: 0.45;
+  transform: scale(0.98);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  border-style: dashed;
 }
 
 .size-btn {

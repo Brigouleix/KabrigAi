@@ -361,8 +361,48 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
     setData((d) => (d ? { ...d, prefs: { ...d.prefs, sizes } } : d));
   }
 
+  const [dragKey, setDragKey] = useState<string | null>(null);
+
   function tileClass(tile: string) {
-    return `tile size-${data?.prefs.sizes?.[tile] ?? "m"}`;
+    return `tile size-${data?.prefs.sizes?.[tile] ?? "m"}${dragKey === tile ? " dragging" : ""}`;
+  }
+
+  function dragProps(tile: string) {
+    return {
+      draggable: true,
+      onDragStart: (e: React.DragEvent) => {
+        // Pas de drag depuis les zones interactives (inputs, boutons, carte, player).
+        const el = e.target as HTMLElement;
+        if (el.closest("input, button, a, iframe, .route-map")) {
+          e.preventDefault();
+          return;
+        }
+        setDragKey(tile);
+        e.dataTransfer.effectAllowed = "move";
+      },
+      onDragEnd: () => setDragKey(null),
+      onDragOver: (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+      },
+      onDrop: async (e: React.DragEvent) => {
+        e.preventDefault();
+        if (!dragKey || dragKey === tile || !data) return;
+        const order = [...data.prefs.tiles];
+        const from = order.indexOf(dragKey);
+        const to = order.indexOf(tile);
+        if (from === -1 || to === -1) return;
+        order.splice(from, 1);
+        order.splice(to, 0, dragKey);
+        setData((d) => (d ? { ...d, prefs: { ...d.prefs, tiles: order } } : d));
+        setDragKey(null);
+        await fetch(`${BACKEND}/api/prefs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tiles: order }),
+        });
+      },
+    };
   }
 
   function SizeBtn({ tile }: { tile: string }) {
@@ -408,7 +448,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
         {tiles.map((t) => {
           if (t === "weather")
             return (
-              <section className={tileClass(t)} key={t}>
+              <section className={tileClass(t)} key={t} {...dragProps(t)}>
                 <h3>🌤️ Météo <SizeBtn tile={t} /></h3>
                 {weather && weather.city ? (
                   <WeatherCard data={weather} />
@@ -419,7 +459,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             );
           if (t === "agenda")
             return (
-              <section className={tileClass(t)} key={t}>
+              <section className={tileClass(t)} key={t} {...dragProps(t)}>
                 <h3>📅 Agenda <SizeBtn tile={t} /></h3>
                 {data?.events?.length ? (
                   <ul className="tile-list">
@@ -439,7 +479,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             );
           if (t === "sport")
             return (
-              <section className={tileClass(t)} key={t}>
+              <section className={tileClass(t)} key={t} {...dragProps(t)}>
                 <h3>🏉 Sport <SizeBtn tile={t} /></h3>
                 <div className="sport-filters">
                   {ALL_SPORTS.map((s) => (
@@ -468,7 +508,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             );
           if (t === "mail")
             return (
-              <section className={tileClass(t)} key={t}>
+              <section className={tileClass(t)} key={t} {...dragProps(t)}>
                 <h3>
                   📬 Boîte mail
                   {data?.mail?.configured && <span className="badge">{data.mail.unread} non lus</span>}
@@ -499,7 +539,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
           if (t === "spotify") {
             const embed = data ? spotifyEmbedUrl(data.prefs.spotify) : null;
             return (
-              <section className={tileClass(t)} key={t}>
+              <section className={tileClass(t)} key={t} {...dragProps(t)}>
                 <h3>🎵 Spotify <SizeBtn tile={t} /></h3>
                 {spotify?.configured && !spotify.connected && (
                   <button className="wa-btn spotify-connect" onClick={connectSpotify}>
@@ -571,7 +611,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
           }
           if (t === "whatsapp")
             return (
-              <section className={tileClass(t)} key={t}>
+              <section className={tileClass(t)} key={t} {...dragProps(t)}>
                 <h3>💬 WhatsApp <SizeBtn tile={t} /></h3>
                 <p className="tile-empty">
                   WhatsApp n'a pas d'API publique — mais ton WhatsApp Web s'ouvre en un clic.
@@ -583,7 +623,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             );
           if (t === "sorties")
             return (
-              <section className={tileClass(t)} key={t}>
+              <section className={tileClass(t)} key={t} {...dragProps(t)}>
                 <h3>🎉 Idées de sortie <SizeBtn tile={t} /></h3>
                 {data?.sorties ? (
                   <div className="tile-md">
@@ -599,7 +639,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             const def = data?.prefs.custom.find((c) => c.id === id);
             const items = data?.custom?.[id] ?? [];
             return (
-              <section className={tileClass(t)} key={t}>
+              <section className={tileClass(t)} key={t} {...dragProps(t)}>
                 <h3>
                   📌 {def?.title ?? id} <SizeBtn tile={t} />
                   <button
