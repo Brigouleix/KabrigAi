@@ -242,7 +242,7 @@ function ChatView({
           type="file"
           ref={fileRef}
           hidden
-          accept=".pdf,.docx,.doc,.txt,.md,.csv,.json,.log"
+          accept=".pdf,.docx,.xlsx,.xlsm,.txt,.md,.csv,.json,.log"
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) importFile(f);

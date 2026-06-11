@@ -443,7 +443,7 @@ TOOL_DEFINITIONS = FINANCE_TOOL_DEFINITIONS + [CHART_TOOL_DEFINITION] + [
         "type": "function",
         "function": {
             "name": "read_document",
-            "description": "Lit un fichier du dossier Documents (pdf, docx, txt, md, csv, json, log) pour le synthétiser.",
+            "description": "Lit un fichier du dossier Documents (pdf, docx, xlsx, txt, md, csv, json, log) pour le synthétiser.",
             "parameters": {
                 "type": "object",
                 "properties": {"path": {"type": "string", "description": "Chemin relatif à Documents"}},

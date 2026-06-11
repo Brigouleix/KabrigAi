@@ -28,13 +28,30 @@ def extract_text(path: Path) -> str:
 
         reader = PdfReader(path)
         return "\n".join(page.extract_text() or "" for page in reader.pages)
-    if suffix in {".docx", ".doc"}:
+    if suffix == ".docx":
         import docx
 
         document = docx.Document(path)
         return "\n".join(p.text for p in document.paragraphs)
+    if suffix in {".xlsx", ".xlsm"}:
+        from openpyxl import load_workbook
+
+        wb = load_workbook(path, read_only=True, data_only=True)
+        lines = []
+        for sheet in wb.worksheets:
+            lines.append(f"=== Feuille : {sheet.title} ===")
+            for row in sheet.iter_rows(values_only=True):
+                cells = [str(c) for c in row if c is not None]
+                if cells:
+                    lines.append(" | ".join(cells))
+        wb.close()
+        return "\n".join(lines)
     if suffix in {".txt", ".md", ".csv", ".json", ".log"}:
         return path.read_text(encoding="utf-8", errors="replace")
+    if suffix == ".doc":
+        raise ValueError(
+            "Format .doc (Word avant 2007) non supporté : réenregistre-le en .docx"
+        )
     raise ValueError(f"Format non supporté : {suffix}")
 
 
