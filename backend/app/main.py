@@ -21,6 +21,7 @@ OLLAMA_URL = "http://localhost:11434"
 MODEL_LIGHT = "qwen2.5:7b"
 MODEL_HEAVY = "qwen2.5:14b"
 MAX_TOOL_ROUNDS = 5
+NUM_CTX = 16384  # défaut Ollama = 4096, trop petit pour 19 tools + historique
 MEMORY_THRESHOLD = 12  # au-delà, on résume les anciens messages
 MEMORY_KEEP_RECENT = 6  # messages récents conservés tels quels
 
@@ -145,6 +146,7 @@ async def chat(req: ChatRequest):
                         "messages": convo,
                         "tools": TOOL_DEFINITIONS,
                         "stream": False,
+                        "options": {"num_ctx": NUM_CTX},
                     },
                 )
                 msg = r.json().get("message", {})
@@ -176,7 +178,12 @@ async def chat(req: ChatRequest):
             async with client.stream(
                 "POST",
                 f"{OLLAMA_URL}/api/chat",
-                json={"model": model, "messages": convo, "stream": True},
+                json={
+                    "model": model,
+                    "messages": convo,
+                    "stream": True,
+                    "options": {"num_ctx": NUM_CTX},
+                },
             ) as r:
                 async for line in r.aiter_lines():
                     if not line:
