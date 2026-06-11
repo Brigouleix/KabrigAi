@@ -1,0 +1,115 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid #21262d;
+}
+
+header h1 {
+  font-size: 18px;
+}
+
+.status {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.status.ok {
+  background: #0d4429;
+  color: #3fb950;
+}
+
+.status.ko {
+  background: #4a1216;
+  color: #f85149;
+}
+
+main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.empty {
+  margin: auto;
+  color: #8b949e;
+}
+
+.msg {
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  white-space: pre-wrap;
+}
+
+.msg.user {
+  align-self: flex-end;
+  background: #1f6feb;
+}
+
+.msg.assistant {
+  align-self: flex-start;
+  background: #161b22;
+  border: 1px solid #21262d;
+}
+
+.model {
+  display: block;
+  font-size: 10px;
+  color: #8b949e;
+  margin-bottom: 4px;
+}
+
+footer {
+  display: flex;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid #21262d;
+}
+
+footer input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+  background: #161b22;
+  color: #e6edf3;
+  font-size: 14px;
+}
+
+footer button {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  background: #238636;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+footer button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
