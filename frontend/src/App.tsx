@@ -43,12 +43,17 @@ type AgendaEvent = {
   notes: string;
 };
 
+type Prefs = { city: string; sports: string[]; tiles: string[] };
+
 type Dashboard = {
   weather: { data?: WeatherData } | WeatherData | null;
   sport: { title: string; url: string; source: string }[];
   sorties: string;
   events: AgendaEvent[];
+  prefs: Prefs;
 };
+
+const ALL_SPORTS = ["tous", "football", "rugby", "tennis", "basket", "cyclisme", "formule 1"];
 
 type Tab = "accueil" | "chat" | "agenda";
 
@@ -239,14 +244,16 @@ function ChatView({
 
 function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
   const [data, setData] = useState<Dashboard | null>(null);
-  const [city, setCity] = useState(localStorage.getItem("kabrig-city") || "Brest");
+  const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function load(c: string) {
+  async function load(c = "") {
     setLoading(true);
     try {
       const res = await fetch(`${BACKEND}/api/dashboard?city=${encodeURIComponent(c)}`);
-      setData(await res.json());
+      const json: Dashboard = await res.json();
+      setData(json);
+      setCity(json.prefs.city);
     } catch {
       setData(null);
     }
@@ -254,11 +261,39 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
   }
 
   useEffect(() => {
-    load(city);
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function saveCity() {
+    await fetch(`${BACKEND}/api/prefs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ city }),
+    });
+    load(city);
+  }
+
+  async function toggleSport(sport: string) {
+    const current = data?.prefs.sports ?? ["tous"];
+    let next: string[];
+    if (sport === "tous") {
+      next = ["tous"];
+    } else {
+      const base = current.filter((s) => s !== "tous");
+      next = base.includes(sport) ? base.filter((s) => s !== sport) : [...base, sport];
+      if (next.length === 0) next = ["tous"];
+    }
+    await fetch(`${BACKEND}/api/prefs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sports: next }),
+    });
+    load();
+  }
+
   const weather = (data?.weather as { data?: WeatherData })?.data ?? (data?.weather as WeatherData | null);
+  const tiles = data?.prefs.tiles ?? ["weather", "agenda", "sport", "sorties"];
 
   return (
     <main className="dashboard">
@@ -270,15 +305,10 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
           <input
             value={city}
             onChange={(e) => setCity(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                localStorage.setItem("kabrig-city", city);
-                load(city);
-              }
-            }}
+            onKeyDown={(e) => e.key === "Enter" && saveCity()}
             placeholder="Ville"
           />
-          <button onClick={() => load(city)} disabled={loading}>
+          <button onClick={() => load()} disabled={loading}>
             {loading ? "…" : "⟳"}
           </button>
         </div>
@@ -293,59 +323,87 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
       </div>
 
       <div className="tiles">
-        <section className="tile">
-          <h3>🌤️ Météo</h3>
-          {weather && weather.city ? (
-            <WeatherCard data={weather} />
-          ) : (
-            <p className="tile-empty">{loading ? "Chargement…" : "Indisponible"}</p>
-          )}
-        </section>
-
-        <section className="tile">
-          <h3>📅 Agenda</h3>
-          {data?.events?.length ? (
-            <ul className="tile-list">
-              {data.events.map((e) => (
-                <li key={e.id}>
-                  <span className="event-date">
-                    {e.date.slice(8, 10)}/{e.date.slice(5, 7)} {e.time}
-                  </span>
-                  <span>{e.title}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="tile-empty">Rien de prévu. Dis-le à Kabrig ou utilise l'onglet Agenda.</p>
-          )}
-        </section>
-
-        <section className="tile">
-          <h3>🏉 Sport</h3>
-          {data?.sport?.length ? (
-            <ul className="tile-list">
-              {data.sport.map((s, i) => (
-                <li key={i}>
-                  <ExternalLink href={s.url}>{s.title}</ExternalLink>
-                  {s.source && <span className="src">{s.source}</span>}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="tile-empty">{loading ? "Chargement…" : "Pas d'actu sport."}</p>
-          )}
-        </section>
-
-        <section className="tile">
-          <h3>🎉 Idées de sortie</h3>
-          {data?.sorties ? (
-            <div className="tile-md">
-              <Markdown components={{ a: ExternalLink }}>{data.sorties}</Markdown>
-            </div>
-          ) : (
-            <p className="tile-empty">{loading ? "Chargement…" : "Aucune suggestion."}</p>
-          )}
-        </section>
+        {tiles.map((t) => {
+          if (t === "weather")
+            return (
+              <section className="tile" key={t}>
+                <h3>🌤️ Météo</h3>
+                {weather && weather.city ? (
+                  <WeatherCard data={weather} />
+                ) : (
+                  <p className="tile-empty">{loading ? "Chargement…" : "Indisponible"}</p>
+                )}
+              </section>
+            );
+          if (t === "agenda")
+            return (
+              <section className="tile" key={t}>
+                <h3>📅 Agenda</h3>
+                {data?.events?.length ? (
+                  <ul className="tile-list">
+                    {data.events.map((e) => (
+                      <li key={e.id}>
+                        <span className="event-date">
+                          {e.date.slice(8, 10)}/{e.date.slice(5, 7)} {e.time}
+                        </span>
+                        <span>{e.title}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="tile-empty">Rien de prévu. Dis-le à Kabrig ou utilise l'onglet Agenda.</p>
+                )}
+              </section>
+            );
+          if (t === "sport")
+            return (
+              <section className="tile" key={t}>
+                <h3>🏉 Sport</h3>
+                <div className="sport-filters">
+                  {ALL_SPORTS.map((s) => (
+                    <button
+                      key={s}
+                      className={`chip small ${data?.prefs.sports.includes(s) ? "active" : ""}`}
+                      onClick={() => toggleSport(s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                {data?.sport?.length ? (
+                  <ul className="tile-list">
+                    {data.sport.map((s, i) => (
+                      <li key={i}>
+                        <ExternalLink href={s.url}>{s.title}</ExternalLink>
+                        {s.source && <span className="src">{s.source}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="tile-empty">{loading ? "Chargement…" : "Pas d'actu sport."}</p>
+                )}
+              </section>
+            );
+          if (t === "sorties")
+            return (
+              <section className="tile" key={t}>
+                <h3>🎉 Idées de sortie</h3>
+                {data?.sorties ? (
+                  <div className="tile-md">
+                    <Markdown components={{ a: ExternalLink }}>{data.sorties}</Markdown>
+                  </div>
+                ) : (
+                  <p className="tile-empty">{loading ? "Chargement…" : "Aucune suggestion."}</p>
+                )}
+              </section>
+            );
+          return null;
+        })}
+        {tiles.length === 0 && (
+          <p className="tile-empty">
+            Toutes les tuiles sont masquées. Demande à Kabrig de les réafficher !
+          </p>
+        )}
       </div>
     </main>
   );

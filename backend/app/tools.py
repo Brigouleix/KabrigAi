@@ -10,6 +10,7 @@ from pathlib import Path
 import httpx
 
 from .agenda import AGENDA_TOOL_DEFINITIONS, create_event, delete_event, list_events
+from .prefs import PREFS_TOOL_DEFINITION, update_preferences
 from .documents import DOCUMENT_TOOL_DEFINITION, create_document
 from .routing import ROUTE_TOOL_DEFINITION, get_route
 from .rag import (
@@ -403,7 +404,7 @@ TOOL_DEFINITIONS = [
             },
         },
     },
-] + RAG_TOOL_DEFINITIONS + [ROUTE_TOOL_DEFINITION, DOCUMENT_TOOL_DEFINITION] + AGENDA_TOOL_DEFINITIONS
+] + RAG_TOOL_DEFINITIONS + [ROUTE_TOOL_DEFINITION, DOCUMENT_TOOL_DEFINITION, PREFS_TOOL_DEFINITION] + AGENDA_TOOL_DEFINITIONS
 
 
 async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
@@ -423,6 +424,7 @@ async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
         if name == "list_indexed":
             return list_indexed(), None
         sync = {
+            "update_preferences": update_preferences,
             "create_document": create_document,
             "create_event": create_event,
             "list_events": list_events,

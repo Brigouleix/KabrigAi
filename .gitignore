@@ -7,3 +7,4 @@ __pycache__/
 frontend/src-tauri/target/
 backend/kabrig.db
 backend/chroma/
+backend/prefs.json

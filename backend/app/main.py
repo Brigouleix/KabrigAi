@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from .agenda import create_event as agenda_create, delete_event as agenda_delete, get_events
+from .prefs import SPORT_FEEDS, get_prefs, set_prefs
 from .tools import TOOL_DEFINITIONS, execute_tool, get_weather, web_search
 
 OLLAMA_URL = "http://localhost:11434"
@@ -146,7 +147,8 @@ async def chat(req: ChatRequest):
                         "messages": convo,
                         "tools": TOOL_DEFINITIONS,
                         "stream": False,
-                        "options": {"num_ctx": NUM_CTX},
+                        # Température basse : stabilise le format des tool calls.
+                        "options": {"num_ctx": NUM_CTX, "temperature": 0.2},
                     },
                 )
                 msg = r.json().get("message", {})
@@ -236,39 +238,72 @@ async def agenda_remove(event_id: int):
     return {"events": get_events()}
 
 
+class PrefsIn(BaseModel):
+    city: str | None = None
+    sports: list[str] | None = None
+    tiles: list[str] | None = None
+
+
+@app.get("/api/prefs")
+async def prefs_get():
+    return get_prefs()
+
+
+@app.post("/api/prefs")
+async def prefs_set(p: PrefsIn):
+    return set_prefs(p.city, p.sports, p.tiles)
+
+
+async def _fetch_sport_feed(client: httpx.AsyncClient, sport: str) -> list[dict]:
+    """Flux RSS L'Équipe d'un sport : (timestamp, item)."""
+    import xml.etree.ElementTree as ET
+    from email.utils import parsedate_to_datetime
+
+    r = await client.get(
+        f"https://dwh.lequipe.fr/api/edito/rss?path={SPORT_FEEDS[sport]}",
+        headers={"User-Agent": "KabrigAI/1.0"},
+    )
+    items = []
+    for item in ET.fromstring(r.text).iter("item"):
+        title = item.findtext("title", "").strip()
+        link = item.findtext("link", "").strip()
+        try:
+            dt = parsedate_to_datetime(item.findtext("pubDate", ""))
+        except (ValueError, TypeError):
+            continue
+        if title and link:
+            label = sport.capitalize() if sport != "tous" else "L'Équipe"
+            items.append({
+                "ts": dt.timestamp(),
+                "title": title,
+                "url": link,
+                "source": f"{label} {dt.strftime('%H:%M')}",
+            })
+        if len(items) >= 8:
+            break
+    return items
+
+
 @app.get("/api/dashboard")
-async def dashboard(city: str = "Brest"):
+async def dashboard(city: str = ""):
     """Agrège les tuiles de l'accueil : météo, sport, sorties, agenda."""
+    prefs = get_prefs()
+    city = city or prefs["city"]
 
     async def weather():
         _, widget = await get_weather(city)
         return widget
 
     async def sport():
-        # Flux RSS L'Équipe : actu sport généraliste, fraîche, sans clé.
-        import xml.etree.ElementTree as ET
-        from email.utils import parsedate_to_datetime
-
+        sports = prefs["sports"] or ["tous"]
         async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.get(
-                "https://dwh.lequipe.fr/api/edito/rss?path=/Tous%20sports",
-                headers={"User-Agent": "KabrigAI/1.0"},
+            feeds = await asyncio.gather(
+                *[_fetch_sport_feed(client, s) for s in sports],
+                return_exceptions=True,
             )
-        root = ET.fromstring(r.text)
-        items = []
-        for item in root.iter("item"):
-            title = item.findtext("title", "").strip()
-            link = item.findtext("link", "").strip()
-            pub = item.findtext("pubDate", "")
-            try:
-                when = parsedate_to_datetime(pub).strftime("%H:%M")
-            except (ValueError, TypeError):
-                when = ""
-            if title and link:
-                items.append({"title": title, "url": link, "source": f"L'Équipe {when}".strip()})
-            if len(items) >= 8:
-                break
-        return items
+        merged = [it for f in feeds if isinstance(f, list) for it in f]
+        merged.sort(key=lambda x: x["ts"], reverse=True)
+        return [{k: v for k, v in it.items() if k != "ts"} for it in merged[:8]]
 
     async def sorties():
         results = await asyncio.to_thread(
@@ -290,4 +325,5 @@ async def dashboard(city: str = "Brest"):
         "sport": sport_data,
         "sorties": sorties_data,
         "events": get_events()[:5],
+        "prefs": prefs,
     }
