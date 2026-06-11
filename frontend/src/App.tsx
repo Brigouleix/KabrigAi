@@ -93,6 +93,49 @@ const TILE_LABELS: Record<string, string> = {
   whatsapp: "💬 WhatsApp",
 };
 
+/* ---------------- Widgets agrandissables ---------------- */
+
+function WidgetBox({ children, name }: { children: React.ReactNode; name: string }) {
+  const [open, setOpen] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  async function save() {
+    const html2canvas = (await import("html2canvas")).default;
+    const canvas = await html2canvas(bodyRef.current!, {
+      backgroundColor: "#ffffff",
+      useCORS: true,
+      scale: 2,
+    });
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = `kabrig-${name}-${new Date().toISOString().slice(0, 10)}.png`;
+    a.click();
+  }
+
+  return (
+    <>
+      <div className="widget-click" onClick={() => setOpen(true)} title="Cliquer pour agrandir">
+        {children}
+      </div>
+      {open && (
+        <div className="lightbox" onClick={() => setOpen(false)}>
+          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+            <div ref={bodyRef} className="lightbox-body">
+              {children}
+            </div>
+            <div className="lightbox-actions">
+              <button onClick={save}>💾 Enregistrer en PNG</button>
+              <button className="close" onClick={() => setOpen(false)}>
+                ✕ Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 /* ---------------- Chat ---------------- */
 
 function ChatView({
@@ -220,9 +263,21 @@ function ChatView({
                 🔧 {t}
               </span>
             ))}
-            {m.weather && <WeatherCard data={m.weather} />}
-            {m.route && <RouteCard data={m.route} />}
-            {m.chart && <ChartCard data={m.chart} />}
+            {m.weather && (
+              <WidgetBox name="meteo">
+                <WeatherCard data={m.weather} />
+              </WidgetBox>
+            )}
+            {m.route && (
+              <WidgetBox name="itineraire">
+                <RouteCard data={m.route} />
+              </WidgetBox>
+            )}
+            {m.chart && (
+              <WidgetBox name="graphique">
+                <ChartCard data={m.chart} />
+              </WidgetBox>
+            )}
             {m.role === "assistant" ? (
               m.content ? (
                 <Markdown components={{ a: ExternalLink }}>{m.content}</Markdown>
@@ -989,16 +1044,6 @@ function App() {
     setTab("chat");
   }
 
-  async function deleteCurrentChat() {
-    if (chatId === null) {
-      newChat();
-      return;
-    }
-    if (!confirm("Supprimer cette conversation ?")) return;
-    const res = await fetch(`${BACKEND}/api/chats/${chatId}`, { method: "DELETE" });
-    setChats((await res.json()).chats);
-    newChat();
-  }
 
   useEffect(() => {
     fetch(`${BACKEND}/api/health`)
@@ -1030,39 +1075,49 @@ function App() {
 
       {tab === "accueil" && <HomeView goChat={goChat} />}
       {tab === "chat" && (
-        <div className="chat-bar">
-          <select
-            value={chatId ?? ""}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (v === "") newChat();
-              else openChat(Number(v));
-            }}
-          >
-            <option value="">✨ Nouvelle conversation</option>
-            {chats.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title} · {c.updated_at.slice(5, 10)}
-              </option>
-            ))}
-          </select>
-          <button onClick={newChat} title="Nouvelle conversation">
-            ➕
-          </button>
-          <button onClick={deleteCurrentChat} title="Supprimer la conversation" disabled={chatId === null}>
-            🗑
-          </button>
+        <div className="chat-layout">
+          <div className="chat-main">
+            <ChatView
+              messages={messages}
+              setMessages={setMessages}
+              busy={busy}
+              setBusy={setBusy}
+              initialInput={pendingPrompt}
+              key={pendingPrompt /* remount pour préremplir */}
+            />
+          </div>
+          <aside className="chat-side">
+            <button className="new-chat" onClick={newChat}>
+              ➕ Nouvelle conversation
+            </button>
+            <div className="chat-list">
+              {chats.length === 0 && <p className="tile-empty">Aucune conversation sauvegardée.</p>}
+              {chats.map((c) => (
+                <div
+                  key={c.id}
+                  className={`chat-item ${chatId === c.id ? "active" : ""}`}
+                  onClick={() => openChat(c.id)}
+                >
+                  <div className="chat-item-title">{c.title}</div>
+                  <div className="chat-item-date">{c.updated_at.slice(0, 10)}</div>
+                  <button
+                    className="chat-item-del"
+                    title="Supprimer"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!confirm(`Supprimer « ${c.title} » ?`)) return;
+                      const res = await fetch(`${BACKEND}/api/chats/${c.id}`, { method: "DELETE" });
+                      setChats((await res.json()).chats);
+                      if (chatId === c.id) newChat();
+                    }}
+                  >
+                    🗑
+                  </button>
+                </div>
+              ))}
+            </div>
+          </aside>
         </div>
-      )}
-      {tab === "chat" && (
-        <ChatView
-          messages={messages}
-          setMessages={setMessages}
-          busy={busy}
-          setBusy={setBusy}
-          initialInput={pendingPrompt}
-          key={pendingPrompt /* remount pour préremplir */}
-        />
       )}
       {tab === "agenda" && <AgendaView />}
       {tab === "reglages" && <SettingsView />}

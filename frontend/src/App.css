@@ -477,37 +477,166 @@ footer button:disabled {
 }
 
 /* ---------- Conversations ---------- */
-.chat-bar {
+.chat-layout {
   display: flex;
-  gap: 8px;
-  padding: 10px 24px 0;
-}
-
-.chat-bar select {
   flex: 1;
-  max-width: 420px;
-  padding: 9px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--card);
+  min-height: 0;
+}
+
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-side {
+  width: 250px;
+  border-left: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.5);
+  display: flex;
+  flex-direction: column;
+  padding: 14px 12px;
+  gap: 12px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.new-chat {
+  border: none;
+  background: var(--dark);
+  color: #fff;
+  border-radius: 12px;
+  padding: 11px;
   font-size: 13px;
-  outline: none;
-  color: var(--text);
-}
-
-.chat-bar button {
-  border: 1px solid var(--border);
-  background: var(--card);
-  border-radius: 999px;
-  width: 38px;
-  height: 38px;
+  font-weight: 600;
   cursor: pointer;
-  font-size: 14px;
 }
 
-.chat-bar button:disabled {
-  opacity: 0.4;
-  cursor: default;
+.chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-item {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.chat-item:hover {
+  border-color: var(--accent);
+}
+
+.chat-item.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.chat-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 22px;
+}
+
+.chat-item-date {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.chat-item-del {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.chat-item:hover .chat-item-del {
+  opacity: 0.7;
+}
+
+/* ---------- Lightbox widgets ---------- */
+.widget-click {
+  cursor: zoom-in;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 12, 8, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: rise 0.15s ease both;
+}
+
+.lightbox-content {
+  background: var(--bg);
+  border-radius: 18px;
+  padding: 20px;
+  max-width: min(900px, 92vw);
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.lightbox-body {
+  min-width: min(760px, 84vw);
+}
+
+.lightbox-body .weather-card,
+.lightbox-body .chart-card,
+.lightbox-body .route-card {
+  min-width: 100%;
+  margin-bottom: 0;
+}
+
+.lightbox-body .route-map {
+  height: 420px;
+}
+
+.lightbox-body .chart-svg {
+  max-height: 60vh;
+}
+
+.lightbox-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.lightbox-actions button {
+  border: none;
+  background: var(--dark);
+  color: #fff;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lightbox-actions button.close {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 /* ---------- Graphiques ---------- */
