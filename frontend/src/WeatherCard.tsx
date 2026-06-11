@@ -11,6 +11,7 @@ export type WeatherData = {
   uv?: number;
   sunrise?: string;
   sunset?: string;
+  tips?: string[];
   days: {
     date: string;
     min: number;
@@ -64,6 +65,14 @@ export function WeatherCard({ data }: { data: WeatherData }) {
         {data.sunrise && <span title="Lever du soleil">🌅 {data.sunrise}</span>}
         {data.sunset && <span title="Coucher du soleil">🌇 {data.sunset}</span>}
       </div>
+
+      {data.tips && data.tips.length > 0 && (
+        <ul className="weather-tips">
+          {data.tips.map((t, i) => (
+            <li key={i}>{t}</li>
+          ))}
+        </ul>
+      )}
 
       <div className="weather-days">
         {data.days.map((d) => (

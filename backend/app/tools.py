@@ -10,7 +10,14 @@ from pathlib import Path
 import httpx
 
 from .agenda import AGENDA_TOOL_DEFINITIONS, create_event, delete_event, list_events
-from .finance import FINANCE_TOOL_DEFINITIONS, crypto_data, market_overview, stock_data
+from .finance import (
+    CHART_TOOL_DEFINITION,
+    FINANCE_TOOL_DEFINITIONS,
+    create_chart,
+    crypto_data,
+    market_overview,
+    stock_data,
+)
 from .prefs import PREFS_TOOL_DEFINITION, update_preferences
 from .documents import DOCUMENT_TOOL_DEFINITION, create_document
 from .routing import ROUTE_TOOL_DEFINITION, get_route
@@ -85,7 +92,33 @@ async def get_weather(city: str) -> tuple[str, dict]:
             f"{date} : {days['temperature_2m_min'][i]}–{days['temperature_2m_max'][i]}°C, "
             f"{WEATHER_CODES.get(days['weather_code'][i], '')}"
         )
+    # Conseils pratiques selon les conditions du jour.
+    tips: list[str] = []
+    rain_today = (days.get("precipitation_probability_max") or [0])[0] or 0
+    temp_max = days["temperature_2m_max"][0]
+    wind = cur["wind_speed_10m"]
+    uv = cur.get("uv_index") or 0
+    if rain_today >= 50 or cur["weather_code"] >= 61:
+        tips.append("☔ Prends un parapluie — et pas de linge dehors aujourd'hui")
+    elif temp_max >= 18 and wind >= 8 and rain_today < 30:
+        tips.append("🧺 Parfait pour étendre le linge dehors")
+    if temp_max < 5:
+        tips.append("🧥 Manteau chaud, écharpe et gants")
+    elif temp_max < 12:
+        tips.append("🧥 Veste chaude conseillée")
+    elif temp_max < 18:
+        tips.append("👕 Un pull ou une veste légère suffit")
+    elif temp_max < 25:
+        tips.append("👕 T-shirt, prévois une petite couche pour le soir")
+    else:
+        tips.append("🥵 Habits légers et pense à t'hydrater")
+    if uv >= 6:
+        tips.append("🧴 UV élevés : crème solaire recommandée")
+    if (cur.get("wind_gusts_10m") or 0) >= 50:
+        tips.append("💨 Fortes rafales : prudence en vélo ou sur la route")
+
     widget = {
+        "tips": tips,
         "city": loc["name"],
         "country": loc.get("country", ""),
         "temp": cur["temperature_2m"],
@@ -261,7 +294,7 @@ def travel_links(
     return "\n".join(lines)
 
 
-TOOL_DEFINITIONS = FINANCE_TOOL_DEFINITIONS + [
+TOOL_DEFINITIONS = FINANCE_TOOL_DEFINITIONS + [CHART_TOOL_DEFINITION] + [
     {
         "type": "function",
         "function": {
@@ -432,11 +465,13 @@ async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
         if name == "get_route":
             return await get_route(**args)
         if name == "crypto_data":
-            return await crypto_data(**args), None
+            return await crypto_data(**args)
         if name == "stock_data":
-            return await stock_data(**args), None
+            return await stock_data(**args)
         if name == "market_overview":
             return await market_overview(), None
+        if name == "create_chart":
+            return create_chart(**args)
         if name == "index_document":
             return await index_document(**args), None
         if name == "search_documents":

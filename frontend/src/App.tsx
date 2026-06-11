@@ -3,6 +3,7 @@ import Markdown from "react-markdown";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { WeatherCard, type WeatherData } from "./WeatherCard";
 import { RouteCard, type RouteData } from "./RouteCard";
+import { ChartCard, type ChartData } from "./ChartCard";
 import "./App.css";
 
 const BACKEND = "http://localhost:8000";
@@ -32,7 +33,10 @@ type Message = {
   tools?: string[];
   weather?: WeatherData;
   route?: RouteData;
+  chart?: ChartData;
 };
+
+type ChatMeta = { id: number; title: string; updated_at: string };
 
 type AgendaEvent = {
   id: number;
@@ -155,6 +159,7 @@ function ChatView({
             if (evt.type === "tool") last.tools = [...(last.tools ?? []), evt.name];
             if (evt.type === "widget" && evt.widget === "weather") last.weather = evt.data;
             if (evt.type === "widget" && evt.widget === "route") last.route = evt.data;
+            if (evt.type === "widget" && evt.widget === "chart") last.chart = evt.data;
             next[next.length - 1] = last;
             return next;
           });
@@ -217,6 +222,7 @@ function ChatView({
             ))}
             {m.weather && <WeatherCard data={m.weather} />}
             {m.route && <RouteCard data={m.route} />}
+            {m.chart && <ChartCard data={m.chart} />}
             {m.role === "assistant" ? (
               m.content ? (
                 <Markdown components={{ a: ExternalLink }}>{m.content}</Markdown>
@@ -372,55 +378,57 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
   }
 
   const [dragKey, setDragKey] = useState<string | null>(null);
-  const dataRef = useRef<Dashboard | null>(null);
-  dataRef.current = data;
+  const [overKey, setOverKey] = useState<string | null>(null);
 
   function tileClass(tile: string) {
-    return `tile size-${data?.prefs.sizes?.[tile] ?? "m"}${dragKey === tile ? " dragging" : ""}`;
+    const dropping = overKey === tile && dragKey && dragKey !== tile ? " drop-target" : "";
+    return `tile size-${data?.prefs.sizes?.[tile] ?? "m"}${dragKey === tile ? " dragging" : ""}${dropping}`;
   }
 
+  // NB : ne PAS réordonner le DOM pendant le drag — Chrome/WebView2 annule le
+  // drag si l'élément source bouge. On marque la cible, on insère au drop.
   function dragProps(tile: string) {
     return {
       draggable: true,
       onDragStart: (e: React.DragEvent) => {
-        // Pas de drag depuis les zones interactives (inputs, boutons, carte, player).
         const el = e.target as HTMLElement;
         if (el.closest("input, button, a, iframe, .route-map")) {
           e.preventDefault();
           return;
         }
-        setDragKey(tile);
+        e.dataTransfer.setData("text/plain", tile);
         e.dataTransfer.effectAllowed = "move";
+        setDragKey(tile);
       },
-      onDragEnd: async () => {
-        // Fin du drag (où qu'il se termine) : on persiste l'ordre courant.
+      onDragEnd: () => {
         setDragKey(null);
-        const order = dataRef.current?.prefs.tiles;
-        if (!order) return;
+        setOverKey(null);
+      },
+      onDragOver: (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setOverKey(tile);
+      },
+      onDragLeave: () => setOverKey((k) => (k === tile ? null : k)),
+      onDrop: async (e: React.DragEvent) => {
+        e.preventDefault();
+        const source = e.dataTransfer.getData("text/plain") || dragKey;
+        setDragKey(null);
+        setOverKey(null);
+        if (!source || source === tile || !data) return;
+        const order = [...data.prefs.tiles];
+        const from = order.indexOf(source);
+        const to = order.indexOf(tile);
+        if (from === -1 || to === -1) return;
+        order.splice(from, 1);
+        order.splice(to, 0, source);
+        setData((d) => (d ? { ...d, prefs: { ...d.prefs, tiles: order } } : d));
         await fetch(`${BACKEND}/api/prefs`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tiles: order }),
         });
       },
-      onDragOver: (e: React.DragEvent) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        // Insertion en direct : la tuile déplacée prend la place survolée,
-        // les autres se décalent immédiatement.
-        if (!dragKey || dragKey === tile) return;
-        setData((d) => {
-          if (!d) return d;
-          const order = [...d.prefs.tiles];
-          const from = order.indexOf(dragKey);
-          const to = order.indexOf(tile);
-          if (from === -1 || to === -1 || from === to) return d;
-          order.splice(from, 1);
-          order.splice(to, 0, dragKey);
-          return { ...d, prefs: { ...d.prefs, tiles: order } };
-        });
-      },
-      onDrop: (e: React.DragEvent) => e.preventDefault(),
     };
   }
 
@@ -899,6 +907,60 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState("");
   const [health, setHealth] = useState<{ ollama: boolean; models: string[] } | null>(null);
+  const [chats, setChats] = useState<ChatMeta[]>([]);
+  const [chatId, setChatId] = useState<number | null>(null);
+
+  async function refreshChats() {
+    const res = await fetch(`${BACKEND}/api/chats`);
+    setChats((await res.json()).chats);
+  }
+
+  useEffect(() => {
+    refreshChats().catch(() => {});
+  }, []);
+
+  // Sauvegarde automatique à la fin de chaque réponse.
+  useEffect(() => {
+    if (busy || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.role !== "assistant" || !last.content) return;
+    (async () => {
+      const res = await fetch(`${BACKEND}/api/chats`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: chatId, messages }),
+      });
+      const saved = await res.json();
+      setChatId(saved.id);
+      refreshChats();
+    })().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy]);
+
+  function newChat() {
+    setMessages([]);
+    setChatId(null);
+    setPendingPrompt("");
+  }
+
+  async function openChat(id: number) {
+    const res = await fetch(`${BACKEND}/api/chats/${id}`);
+    const chat = await res.json();
+    setMessages(chat.messages ?? []);
+    setChatId(chat.id);
+    setTab("chat");
+  }
+
+  async function deleteCurrentChat() {
+    if (chatId === null) {
+      newChat();
+      return;
+    }
+    if (!confirm("Supprimer cette conversation ?")) return;
+    const res = await fetch(`${BACKEND}/api/chats/${chatId}`, { method: "DELETE" });
+    setChats((await res.json()).chats);
+    newChat();
+  }
 
   useEffect(() => {
     fetch(`${BACKEND}/api/health`)
@@ -929,6 +991,31 @@ function App() {
       </header>
 
       {tab === "accueil" && <HomeView goChat={goChat} />}
+      {tab === "chat" && (
+        <div className="chat-bar">
+          <select
+            value={chatId ?? ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "") newChat();
+              else openChat(Number(v));
+            }}
+          >
+            <option value="">✨ Nouvelle conversation</option>
+            {chats.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title} · {c.updated_at.slice(5, 10)}
+              </option>
+            ))}
+          </select>
+          <button onClick={newChat} title="Nouvelle conversation">
+            ➕
+          </button>
+          <button onClick={deleteCurrentChat} title="Supprimer la conversation" disabled={chatId === null}>
+            🗑
+          </button>
+        </div>
+      )}
       {tab === "chat" && (
         <ChatView
           messages={messages}

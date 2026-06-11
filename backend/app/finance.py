@@ -82,10 +82,19 @@ def _format(name: str, currency: str, ind: dict, extra: dict | None = None) -> s
 
 # ---------- Crypto (CoinGecko, sans clé) ----------
 
-async def crypto_data(coins: str, days: int = 90) -> str:
+def _chart_widget(title: str, labels: list[str], series: list[dict], kind: str = "line") -> dict:
+    return {
+        "widget": "chart",
+        "data": {"title": title, "labels": labels, "series": series, "type": kind},
+    }
+
+
+async def crypto_data(coins: str, days: int = 90) -> tuple[str, dict | None]:
     """coins : ids CoinGecko séparés par des virgules (bitcoin, ethereum, solana...)."""
     ids = [c.strip().lower() for c in coins.split(",") if c.strip()][:5]
     results = []
+    chart_series: list[dict] = []
+    chart_labels: list[str] = []
     async with httpx.AsyncClient(timeout=20, headers=UA) as client:
         markets = await client.get(
             "https://api.coingecko.com/api/v3/coins/markets",
@@ -100,9 +109,17 @@ async def crypto_data(coins: str, days: int = 90) -> str:
             if r.status_code != 200:
                 results.append(f"=== {cid} === introuvable sur CoinGecko (id exact requis, ex: bitcoin)")
                 continue
-            prices = [p[1] for p in r.json().get("prices", [])]
+            raw = r.json().get("prices", [])
+            prices = [p[1] for p in raw]
             if len(prices) < 2:
                 continue
+            from datetime import datetime
+
+            if not chart_labels:
+                chart_labels = [
+                    datetime.fromtimestamp(p[0] / 1000).strftime("%d/%m") for p in raw
+                ]
+            chart_series.append({"name": cid, "values": [round(p, 4) for p in prices]})
             m = market_by_id.get(cid, {})
             extra = {}
             if m:
@@ -115,12 +132,23 @@ async def crypto_data(coins: str, days: int = 90) -> str:
                     "distance_ath_pct": m.get("ath_change_percentage"),
                 }
             results.append(_format(m.get("name", cid), "EUR", _indicators(prices), extra))
-    return f"Données sur {days} jours :\n\n" + "\n\n".join(results)
+    widget = None
+    if chart_series:
+        if len(chart_series) > 1:
+            # Échelles différentes : on normalise en base 100 pour comparer.
+            for s in chart_series:
+                base = s["values"][0]
+                s["values"] = [round(v / base * 100, 2) for v in s["values"]]
+            title = f"Comparaison base 100 — {days}j"
+        else:
+            title = f"{chart_series[0]['name']} (EUR) — {days}j"
+        widget = _chart_widget(title, chart_labels, chart_series)
+    return f"Données sur {days} jours :\n\n" + "\n\n".join(results), widget
 
 
 # ---------- Bourse (Yahoo Finance, sans clé) ----------
 
-async def stock_data(symbol: str, range: str = "6mo") -> str:
+async def stock_data(symbol: str, range: str = "6mo") -> tuple[str, dict | None]:
     """symbol : ticker Yahoo (AAPL, MC.PA, ^FCHI pour le CAC 40, EURUSD=X...)."""
     async with httpx.AsyncClient(timeout=20, headers=UA) as client:
         r = await client.get(
@@ -128,24 +156,35 @@ async def stock_data(symbol: str, range: str = "6mo") -> str:
             params={"range": range, "interval": "1d"},
         )
     if r.status_code != 200:
-        return f"Ticker introuvable : {symbol} (format Yahoo : AAPL, MC.PA, ^FCHI, BTC-EUR...)"
+        return f"Ticker introuvable : {symbol} (format Yahoo : AAPL, MC.PA, ^FCHI, BTC-EUR...)", None
     data = r.json().get("chart", {}).get("result", [None])[0]
     if not data:
-        return f"Pas de données pour {symbol}."
+        return f"Pas de données pour {symbol}.", None
     meta = data["meta"]
-    closes = [c for c in data["indicators"]["quote"][0]["close"] if c is not None]
+    quotes = data["indicators"]["quote"][0]["close"]
+    stamps = data.get("timestamp", [])
+    pairs = [(t, c) for t, c in zip(stamps, quotes) if c is not None]
+    closes = [c for _, c in pairs]
     if len(closes) < 2:
-        return f"Historique insuffisant pour {symbol}."
+        return f"Historique insuffisant pour {symbol}.", None
     extra = {
         "nom": meta.get("longName") or meta.get("shortName") or symbol,
         "place": meta.get("fullExchangeName", ""),
         "plus_haut_52_semaines": meta.get("fiftyTwoWeekHigh"),
         "plus_bas_52_semaines": meta.get("fiftyTwoWeekLow"),
     }
+    from datetime import datetime
+
+    labels = [datetime.fromtimestamp(t).strftime("%d/%m") for t, _ in pairs]
+    widget = _chart_widget(
+        f"{extra['nom']} ({meta.get('currency', '')}) — {range}",
+        labels,
+        [{"name": symbol, "values": [round(c, 2) for c in closes]}],
+    )
     return (
         f"Données sur {range} :\n\n"
         + _format(symbol, meta.get("currency", ""), _indicators(closes), extra)
-    )
+    ), widget
 
 
 async def market_overview() -> str:
@@ -188,6 +227,65 @@ async def market_overview() -> str:
         except Exception:
             lines.append("Cryptos : indisponibles")
     return "\n".join(lines)
+
+
+def create_chart(
+    title: str,
+    labels: list[str],
+    series: list[dict],
+    type: str = "line",
+) -> tuple[str, dict | None]:
+    """Graphique générique fourni par le LLM (line ou bar)."""
+    clean = [
+        {"name": s.get("name", f"série {i+1}"), "values": [float(v) for v in s.get("values", [])]}
+        for i, s in enumerate(series)
+        if s.get("values")
+    ]
+    if not clean or not labels:
+        return "Graphique invalide : il faut labels et au moins une série de valeurs.", None
+    return (
+        f"Graphique « {title} » affiché.",
+        _chart_widget(title, [str(l) for l in labels], clean, "bar" if type == "bar" else "line"),
+    )
+
+
+CHART_TOOL_DEFINITION = {
+    "type": "function",
+    "function": {
+        "name": "create_chart",
+        "description": (
+            "Affiche un graphique (courbe ou barres) dans le chat à partir de "
+            "données que tu fournis. Utile pour visualiser une évolution, une "
+            "comparaison, des statistiques. Note : crypto_data et stock_data "
+            "affichent déjà automatiquement le graphique des prix."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string"},
+                "labels": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Étiquettes de l'axe X (dates, catégories...)",
+                },
+                "series": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "values": {"type": "array", "items": {"type": "number"}},
+                        },
+                        "required": ["name", "values"],
+                    },
+                    "description": "Une ou plusieurs séries de valeurs (même longueur que labels)",
+                },
+                "type": {"type": "string", "enum": ["line", "bar"], "description": "Défaut line"},
+            },
+            "required": ["title", "labels", "series"],
+        },
+    },
+}
 
 
 FINANCE_TOOL_DEFINITIONS = [

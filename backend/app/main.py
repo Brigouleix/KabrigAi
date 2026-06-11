@@ -235,6 +235,40 @@ class EventIn(BaseModel):
     notes: str = ""
 
 
+class ChatSave(BaseModel):
+    id: int | None = None
+    messages: list
+
+
+@app.get("/api/chats")
+async def chats_list():
+    from .chats import list_chats
+
+    return {"chats": list_chats()}
+
+
+@app.get("/api/chats/{chat_id}")
+async def chats_get(chat_id: int):
+    from .chats import get_chat
+
+    return get_chat(chat_id) or {"id": None, "messages": []}
+
+
+@app.post("/api/chats")
+async def chats_save(body: ChatSave):
+    from .chats import save_chat
+
+    return save_chat(body.id, body.messages)
+
+
+@app.delete("/api/chats/{chat_id}")
+async def chats_delete(chat_id: int):
+    from .chats import delete_chat, list_chats
+
+    delete_chat(chat_id)
+    return {"chats": list_chats()}
+
+
 @app.get("/api/agenda")
 async def agenda_list(include_past: bool = False):
     return {"events": get_events(include_past)}
