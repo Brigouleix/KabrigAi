@@ -31,7 +31,7 @@ def system_prompt() -> str:
         "recherche internet (web_search puis read_webpage pour approfondir), "
         "RAG sur les documents (index_document une fois, puis search_documents "
         "pour répondre aux questions sur leur contenu), "
-        "envoi d'emails. Utilise-les quand c'est pertinent, sans demander la "
+        "envoi d'emails, itinéraires (get_route). Utilise-les quand c'est pertinent, sans demander la "
         "permission — SAUF send_email : montre toujours le brouillon et attends "
         "la confirmation d'Antoine avant d'envoyer. "
         f"Nous sommes le {date.today().isoformat()}."

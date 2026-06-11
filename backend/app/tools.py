@@ -9,6 +9,7 @@ from pathlib import Path
 
 import httpx
 
+from .routing import ROUTE_TOOL_DEFINITION, get_route
 from .rag import (
     RAG_TOOL_DEFINITIONS,
     extract_text,
@@ -399,7 +400,7 @@ TOOL_DEFINITIONS = [
             },
         },
     },
-] + RAG_TOOL_DEFINITIONS
+] + RAG_TOOL_DEFINITIONS + [ROUTE_TOOL_DEFINITION]
 
 
 async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
@@ -410,6 +411,8 @@ async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
             return text, {"widget": "weather", "data": widget} if widget else None
         if name == "read_webpage":
             return await read_webpage(**args), None
+        if name == "get_route":
+            return await get_route(**args)
         if name == "index_document":
             return await index_document(**args), None
         if name == "search_documents":
