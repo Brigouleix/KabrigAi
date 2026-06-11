@@ -245,15 +245,30 @@ async def dashboard(city: str = "Brest"):
         return widget
 
     async def sport():
-        from ddgs import DDGS
+        # Flux RSS L'Équipe : actu sport généraliste, fraîche, sans clé.
+        import xml.etree.ElementTree as ET
+        from email.utils import parsedate_to_datetime
 
-        results = await asyncio.to_thread(
-            lambda: DDGS().news("résultats football rugby tennis basket", region="fr-fr", max_results=6)
-        )
-        return [
-            {"title": r["title"], "url": r["url"], "source": r.get("source", "")}
-            for r in results or []
-        ]
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                "https://dwh.lequipe.fr/api/edito/rss?path=/Tous%20sports",
+                headers={"User-Agent": "KabrigAI/1.0"},
+            )
+        root = ET.fromstring(r.text)
+        items = []
+        for item in root.iter("item"):
+            title = item.findtext("title", "").strip()
+            link = item.findtext("link", "").strip()
+            pub = item.findtext("pubDate", "")
+            try:
+                when = parsedate_to_datetime(pub).strftime("%H:%M")
+            except (ValueError, TypeError):
+                when = ""
+            if title and link:
+                items.append({"title": title, "url": link, "source": f"L'Équipe {when}".strip()})
+            if len(items) >= 8:
+                break
+        return items
 
     async def sorties():
         results = await asyncio.to_thread(
