@@ -18,6 +18,8 @@ OLLAMA_URL = "http://localhost:11434"
 MODEL_LIGHT = "qwen2.5:7b"
 MODEL_HEAVY = "qwen2.5:32b"
 MAX_TOOL_ROUNDS = 5
+MEMORY_THRESHOLD = 12  # au-delà, on résume les anciens messages
+MEMORY_KEEP_RECENT = 6  # messages récents conservés tels quels
 
 SYSTEM_PROMPT = (
     "Tu es Kabrig, l'assistant personnel d'Antoine. Tu réponds en français, "
@@ -81,13 +83,38 @@ async def route_query(messages: list[ChatMessage]) -> str:
     return MODEL_HEAVY if "HEAVY" in answer else MODEL_LIGHT
 
 
+async def compress_history(messages: list[ChatMessage]) -> list[dict]:
+    """Résume les anciens messages avec le modèle léger pour économiser le contexte."""
+    if len(messages) <= MEMORY_THRESHOLD:
+        return [m.model_dump() for m in messages]
+    old, recent = messages[:-MEMORY_KEEP_RECENT], messages[-MEMORY_KEEP_RECENT:]
+    transcript = "\n".join(f"{m.role}: {m.content}" for m in old)
+    async with httpx.AsyncClient() as client:
+        r = await client.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={
+                "model": MODEL_LIGHT,
+                "prompt": (
+                    "Résume cette conversation en 5 phrases maximum, en gardant "
+                    "les faits et décisions importants :\n\n" + transcript
+                ),
+                "stream": False,
+            },
+            timeout=120,
+        )
+    summary = r.json().get("response", "").strip()
+    return [
+        {"role": "system", "content": f"Résumé de la conversation précédente : {summary}"},
+        *[m.model_dump() for m in recent],
+    ]
+
+
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     """Chat avec tool calling : boucle tools (non-streamé) puis réponse streamée."""
     model = await route_query(req.messages)
-    convo = [{"role": "system", "content": SYSTEM_PROMPT}] + [
-        m.model_dump() for m in req.messages
-    ]
+    history = await compress_history(req.messages)
+    convo = [{"role": "system", "content": SYSTEM_PROMPT}] + history
 
     async def stream():
         yield json.dumps({"type": "model", "model": model}) + "\n"
@@ -124,7 +151,9 @@ async def chat(req: ChatRequest):
                     if isinstance(args, str):
                         args = json.loads(args)
                     yield json.dumps({"type": "tool", "name": name, "args": args}) + "\n"
-                    result = await execute_tool(name, args)
+                    result, widget = await execute_tool(name, args)
+                    if widget:
+                        yield json.dumps({"type": "widget", **widget}) + "\n"
                     convo.append({"role": "tool", "content": result})
 
             # Réponse finale streamée (sans tools pour forcer la synthèse).

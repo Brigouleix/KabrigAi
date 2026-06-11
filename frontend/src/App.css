@@ -75,6 +75,89 @@ main {
   border: 1px solid #21262d;
 }
 
+.weather-card {
+  background: linear-gradient(135deg, #1a2940, #0f1b2d);
+  border: 1px solid #2c4a7c;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 8px;
+  min-width: 280px;
+}
+
+.weather-now {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.weather-icon {
+  font-size: 42px;
+}
+
+.weather-temp {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.weather-city {
+  font-size: 13px;
+  color: #9fb6d4;
+}
+
+.weather-desc {
+  font-size: 12px;
+  color: #6e87a8;
+  text-transform: capitalize;
+}
+
+.weather-meta {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #9fb6d4;
+}
+
+.weather-days {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #223a5e;
+}
+
+.weather-day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  color: #9fb6d4;
+}
+
+.msg.assistant pre {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 10px;
+  overflow-x: auto;
+  font-size: 13px;
+}
+
+.msg.assistant code {
+  background: #0d1117;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 13px;
+}
+
+.msg.assistant ul,
+.msg.assistant ol {
+  padding-left: 20px;
+}
+
 .tool {
   display: inline-block;
   font-size: 11px;

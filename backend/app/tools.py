@@ -33,7 +33,8 @@ def _db() -> sqlite3.Connection:
     return conn
 
 
-async def get_weather(city: str) -> str:
+async def get_weather(city: str) -> tuple[str, dict]:
+    """Retourne (texte pour le LLM, données structurées pour le widget UI)."""
     async with httpx.AsyncClient(timeout=10) as client:
         geo = await client.get(
             "https://geocoding-api.open-meteo.com/v1/search",
@@ -41,7 +42,7 @@ async def get_weather(city: str) -> str:
         )
         results = geo.json().get("results")
         if not results:
-            return f"Ville introuvable : {city}"
+            return f"Ville introuvable : {city}", {}
         loc = results[0]
         meteo = await client.get(
             "https://api.open-meteo.com/v1/forecast",
@@ -68,7 +69,26 @@ async def get_weather(city: str) -> str:
             f"{date} : {days['temperature_2m_min'][i]}–{days['temperature_2m_max'][i]}°C, "
             f"{WEATHER_CODES.get(days['weather_code'][i], '')}"
         )
-    return "\n".join(lines)
+    widget = {
+        "city": loc["name"],
+        "country": loc.get("country", ""),
+        "temp": cur["temperature_2m"],
+        "desc": WEATHER_CODES.get(cur["weather_code"], ""),
+        "code": cur["weather_code"],
+        "wind": cur["wind_speed_10m"],
+        "humidity": cur["relative_humidity_2m"],
+        "days": [
+            {
+                "date": days["time"][i],
+                "min": days["temperature_2m_min"][i],
+                "max": days["temperature_2m_max"][i],
+                "code": days["weather_code"][i],
+                "desc": WEATHER_CODES.get(days["weather_code"][i], ""),
+            }
+            for i in range(len(days["time"]))
+        ],
+    }
+    return "\n".join(lines), widget
 
 
 def create_note(title: str, content: str) -> str:
@@ -212,10 +232,12 @@ TOOL_DEFINITIONS = [
 ]
 
 
-async def execute_tool(name: str, args: dict) -> str:
+async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
+    """Retourne (texte pour le LLM, widget UI optionnel)."""
     try:
         if name == "get_weather":
-            return await get_weather(**args)
+            text, widget = await get_weather(**args)
+            return text, {"widget": "weather", "data": widget} if widget else None
         sync = {
             "create_note": create_note,
             "list_notes": list_notes,
@@ -225,7 +247,7 @@ async def execute_tool(name: str, args: dict) -> str:
             "read_document": read_document,
         }.get(name)
         if sync is None:
-            return f"Tool inconnu : {name}"
-        return sync(**args)
+            return f"Tool inconnu : {name}", None
+        return sync(**args), None
     except Exception as e:  # le LLM doit voir l'erreur pour réagir
-        return f"Erreur du tool {name} : {e}"
+        return f"Erreur du tool {name} : {e}", None

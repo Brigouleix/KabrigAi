@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import Markdown from "react-markdown";
+import { WeatherCard, type WeatherData } from "./WeatherCard";
 import "./App.css";
 
 const BACKEND = "http://localhost:8000";
@@ -8,6 +10,7 @@ type Message = {
   content: string;
   model?: string;
   tools?: string[];
+  weather?: WeatherData;
 };
 
 function App() {
@@ -64,6 +67,7 @@ function App() {
             if (evt.type === "model") last.model = evt.model;
             if (evt.type === "token") last.content += evt.content;
             if (evt.type === "tool") last.tools = [...(last.tools ?? []), evt.name];
+            if (evt.type === "widget" && evt.widget === "weather") last.weather = evt.data;
             next[next.length - 1] = last;
             return next;
           });
@@ -101,7 +105,16 @@ function App() {
             {m.tools?.map((t, j) => (
               <span key={j} className="tool">🔧 {t}</span>
             ))}
-            <p>{m.content || (busy && i === messages.length - 1 ? "…" : "")}</p>
+            {m.weather && <WeatherCard data={m.weather} />}
+            {m.role === "assistant" ? (
+              m.content ? (
+                <Markdown>{m.content}</Markdown>
+              ) : (
+                <p>{busy && i === messages.length - 1 ? "…" : ""}</p>
+              )
+            ) : (
+              <p>{m.content}</p>
+            )}
           </div>
         ))}
         <div ref={bottomRef} />
