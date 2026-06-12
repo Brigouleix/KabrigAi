@@ -19,6 +19,13 @@ from .finance import (
     stock_data,
 )
 from .prefs import PREFS_TOOL_DEFINITION, update_preferences
+from .todos import (
+    TODO_TOOL_DEFINITIONS,
+    add_todo,
+    complete_todo,
+    delete_todo,
+    list_todos,
+)
 from .documents import DOCUMENT_TOOL_DEFINITION, create_document
 from .routing import ROUTE_TOOL_DEFINITION, get_route
 from .rag import (
@@ -451,7 +458,7 @@ TOOL_DEFINITIONS = FINANCE_TOOL_DEFINITIONS + [CHART_TOOL_DEFINITION] + [
             },
         },
     },
-] + RAG_TOOL_DEFINITIONS + [ROUTE_TOOL_DEFINITION, DOCUMENT_TOOL_DEFINITION, PREFS_TOOL_DEFINITION] + AGENDA_TOOL_DEFINITIONS
+] + RAG_TOOL_DEFINITIONS + [ROUTE_TOOL_DEFINITION, DOCUMENT_TOOL_DEFINITION, PREFS_TOOL_DEFINITION] + AGENDA_TOOL_DEFINITIONS + TODO_TOOL_DEFINITIONS
 
 
 async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
@@ -479,6 +486,10 @@ async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
         if name == "list_indexed":
             return list_indexed(), None
         sync = {
+            "add_todo": add_todo,
+            "list_todos": list_todos,
+            "complete_todo": complete_todo,
+            "delete_todo": delete_todo,
             "update_preferences": update_preferences,
             "create_document": create_document,
             "create_event": create_event,

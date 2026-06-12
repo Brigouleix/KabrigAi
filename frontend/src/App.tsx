@@ -58,7 +58,10 @@ type Prefs = {
 
 type NewsItem = { title: string; url: string; source: string };
 
+type Todo = { id: number; text: string; done: number };
+
 type Dashboard = {
+  todos: Todo[];
   weather: { data?: WeatherData } | WeatherData | null;
   sport: NewsItem[];
   sorties: string;
@@ -85,6 +88,7 @@ type Tab = "accueil" | "chat" | "agenda" | "reglages";
 
 const TILE_LABELS: Record<string, string> = {
   weather: "🌤️ Météo",
+  todo: "✅ Todo list",
   agenda: "📅 Agenda",
   sport: "🏉 Sport",
   sorties: "🎉 Idées de sortie",
@@ -574,6 +578,77 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                   <WeatherCard data={weather} />
                 ) : (
                   <p className="tile-empty">{loading ? "Chargement…" : "Indisponible"}</p>
+                )}
+              </Tile>
+            );
+          if (t === "todo")
+            return (
+              <Tile className={tileClass(t)} key={t} drag={dragProps(t)}>
+                <h3>✅ Todo list <SizeBtn tile={t} /></h3>
+                <div className="todo-add">
+                  <input
+                    placeholder="Ajouter une tâche…"
+                    onKeyDown={async (e) => {
+                      if (e.key !== "Enter") return;
+                      const text = e.currentTarget.value.trim();
+                      if (!text) return;
+                      e.currentTarget.value = "";
+                      const res = await fetch(`${BACKEND}/api/todos`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text }),
+                      });
+                      const { todos } = await res.json();
+                      setData((d) => (d ? { ...d, todos } : d));
+                    }}
+                  />
+                </div>
+                {data?.todos?.length ? (
+                  <ul className="todo-list">
+                    {data.todos.map((td) => (
+                      <li key={td.id} className={td.done ? "done" : ""}>
+                        <button
+                          className="todo-check"
+                          onClick={async () => {
+                            const res = await fetch(`${BACKEND}/api/todos/${td.id}/toggle`, {
+                              method: "POST",
+                            });
+                            const { todos } = await res.json();
+                            setData((d) => (d ? { ...d, todos } : d));
+                          }}
+                        >
+                          {td.done ? "✓" : ""}
+                        </button>
+                        <span>{td.text}</span>
+                        <button
+                          className="todo-del"
+                          onClick={async () => {
+                            const res = await fetch(`${BACKEND}/api/todos/${td.id}`, {
+                              method: "DELETE",
+                            });
+                            const { todos } = await res.json();
+                            setData((d) => (d ? { ...d, todos } : d));
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="tile-empty">Rien à faire 🎉 Ajoute une tâche ou dis-le à l'IA.</p>
+                )}
+                {data?.todos?.some((td) => td.done) && (
+                  <button
+                    className="todo-clear"
+                    onClick={async () => {
+                      const res = await fetch(`${BACKEND}/api/todos/clear-done`, { method: "POST" });
+                      const { todos } = await res.json();
+                      setData((d) => (d ? { ...d, todos } : d));
+                    }}
+                  >
+                    Nettoyer les tâches faites
+                  </button>
                 )}
               </Tile>
             );

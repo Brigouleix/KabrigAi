@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from .agenda import create_event as agenda_create, delete_event as agenda_delete, get_events
 from . import spotify as sp
 from .prefs import SPORT_FEEDS, get_prefs, set_prefs
+from .todos import get_todos as get_todos_list
 from .tools import TOOL_DEFINITIONS, execute_tool, get_weather, web_search
 
 OLLAMA_URL = "http://localhost:11434"
@@ -269,6 +270,49 @@ async def chats_delete(chat_id: int):
     return {"chats": list_chats()}
 
 
+class TodoIn(BaseModel):
+    text: str
+
+
+@app.get("/api/todos")
+async def todos_list():
+    from .todos import get_todos
+
+    return {"todos": get_todos()}
+
+
+@app.post("/api/todos")
+async def todos_add(body: TodoIn):
+    from .todos import add_todo, get_todos
+
+    add_todo(body.text)
+    return {"todos": get_todos()}
+
+
+@app.post("/api/todos/{todo_id}/toggle")
+async def todos_toggle(todo_id: int):
+    from .todos import get_todos, toggle_todo
+
+    toggle_todo(todo_id)
+    return {"todos": get_todos()}
+
+
+@app.delete("/api/todos/{todo_id}")
+async def todos_delete(todo_id: int):
+    from .todos import delete_todo, get_todos
+
+    delete_todo(todo_id)
+    return {"todos": get_todos()}
+
+
+@app.post("/api/todos/clear-done")
+async def todos_clear_done():
+    from .todos import clear_done, get_todos
+
+    clear_done()
+    return {"todos": get_todos()}
+
+
 @app.get("/api/agenda")
 async def agenda_list(include_past: bool = False):
     return {"events": get_events(include_past)}
@@ -503,5 +547,6 @@ async def dashboard(city: str = ""):
         "mail": mail_data,
         "custom": custom_data,
         "events": get_events()[:5],
+        "todos": get_todos_list(),
         "prefs": prefs,
     }

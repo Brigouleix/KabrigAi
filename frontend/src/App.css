@@ -913,6 +913,93 @@ footer button:disabled {
   color: var(--red);
 }
 
+/* ---------- Todo ---------- */
+.todo-add input {
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-soft);
+  font-size: 13px;
+  outline: none;
+  margin-bottom: 10px;
+}
+
+.todo-add input:focus {
+  border-color: var(--accent);
+}
+
+.todo-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.todo-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px;
+}
+
+.todo-list li:last-child {
+  border-bottom: none;
+}
+
+.todo-list li span {
+  flex: 1;
+}
+
+.todo-list li.done span {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.todo-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+li.done .todo-check {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.todo-del {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.todo-list li:hover .todo-del {
+  opacity: 0.8;
+}
+
+.todo-clear {
+  margin-top: 10px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* ---------- Réglages ---------- */
 .settings {
   gap: 16px;
