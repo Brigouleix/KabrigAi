@@ -97,6 +97,56 @@ const TILE_LABELS: Record<string, string> = {
   whatsapp: "💬 WhatsApp",
 };
 
+/* ---------------- Sphère IA + réflexion ---------------- */
+
+function Sphere({ small = false }: { small?: boolean }) {
+  return <span className={`ai-sphere ${small ? "small" : ""}`} aria-hidden />;
+}
+
+// Libellés "réflexion" lisibles pour chaque tool.
+const TOOL_THINKING: Record<string, string> = {
+  get_weather: "consulte la météo",
+  web_search: "cherche sur le web",
+  read_webpage: "lit une page web",
+  crypto_data: "récupère les données crypto",
+  stock_data: "récupère les cours de bourse",
+  market_overview: "fait le point sur les marchés",
+  create_chart: "trace un graphique",
+  get_route: "calcule l'itinéraire",
+  create_document: "rédige le document",
+  send_email: "prépare l'email",
+  index_document: "indexe le document",
+  search_documents: "fouille tes documents",
+  read_document: "lit le document",
+  add_todo: "ajoute à ta todo",
+  list_todos: "consulte ta todo",
+  complete_todo: "met à jour ta todo",
+  delete_todo: "met à jour ta todo",
+  create_event: "ajoute à ton agenda",
+  list_events: "consulte ton agenda",
+  delete_event: "met à jour ton agenda",
+  update_preferences: "personnalise ton accueil",
+  travel_links: "prépare les liens de voyage",
+};
+
+function Thinking({ tools }: { tools?: string[] }) {
+  const last = tools?.[tools.length - 1];
+  const label = last ? TOOL_THINKING[last] ?? `utilise ${last}` : "réfléchit";
+  return (
+    <div className="thinking">
+      <Sphere />
+      <span className="thinking-label">
+        Kabrig {label}
+        <span className="dots">
+          <i />
+          <i />
+          <i />
+        </span>
+      </span>
+    </div>
+  );
+}
+
 /* ---------------- Widgets agrandissables ---------------- */
 
 function WidgetBox({ children, name }: { children: React.ReactNode; name: string }) {
@@ -262,11 +312,12 @@ function ChatView({
         {messages.map((m, i) => (
           <div key={i} className={`msg ${m.role}`}>
             {m.model && <span className="model">{m.model}</span>}
-            {m.tools?.map((t, j) => (
-              <span key={j} className="tool">
-                🔧 {t}
-              </span>
-            ))}
+            {m.role === "assistant" && m.content &&
+              m.tools?.map((t, j) => (
+                <span key={j} className="tool">
+                  🔧 {t}
+                </span>
+              ))}
             {m.weather && (
               <WidgetBox name="meteo">
                 <WeatherCard data={m.weather} />
@@ -285,9 +336,9 @@ function ChatView({
             {m.role === "assistant" ? (
               m.content ? (
                 <Markdown components={{ a: ExternalLink }}>{m.content}</Markdown>
-              ) : (
-                <p>{busy && i === messages.length - 1 ? "…" : ""}</p>
-              )
+              ) : busy && i === messages.length - 1 ? (
+                <Thinking tools={m.tools} />
+              ) : null
             ) : (
               <p>{m.content}</p>
             )}
@@ -396,6 +447,12 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
   }
 
   useEffect(() => {
+    // Todos d'abord (endpoint rapide) pour un affichage instantané,
+    // puis le dashboard complet (météo/sport/sorties/mail, plus lent).
+    fetch(`${BACKEND}/api/todos`)
+      .then((r) => r.json())
+      .then(({ todos }) => setData((d) => (d ? { ...d, todos } : ({ todos } as Dashboard))))
+      .catch(() => {});
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

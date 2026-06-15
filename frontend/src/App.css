@@ -187,6 +187,85 @@ main {
   margin: 0 4px 8px 0;
 }
 
+/* ---------- Sphère IA + réflexion ---------- */
+.ai-sphere {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: radial-gradient(circle at 32% 30%, #ffd9b0 0%, #f0a05a 38%, #c2702a 70%, #8a4d18 100%);
+  box-shadow: 0 0 14px rgba(240, 160, 90, 0.55), inset 0 0 8px rgba(255, 255, 255, 0.4);
+  animation: sphere-pulse 2.4s ease-in-out infinite, sphere-morph 5s ease-in-out infinite;
+}
+
+.ai-sphere.small {
+  width: 18px;
+  height: 18px;
+}
+
+@keyframes sphere-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 12px rgba(240, 160, 90, 0.45), inset 0 0 8px rgba(255, 255, 255, 0.4);
+  }
+  50% {
+    transform: scale(1.12);
+    box-shadow: 0 0 22px rgba(240, 160, 90, 0.75), inset 0 0 10px rgba(255, 255, 255, 0.55);
+  }
+}
+
+@keyframes sphere-morph {
+  0%, 100% {
+    border-radius: 50% 50% 50% 50%;
+  }
+  33% {
+    border-radius: 54% 46% 52% 48%;
+  }
+  66% {
+    border-radius: 47% 53% 45% 55%;
+  }
+}
+
+.thinking {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.thinking-label {
+  font-size: 13.5px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.dots i {
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin-left: 2px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: dot 1.2s infinite;
+}
+
+.dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dot {
+  0%, 60%, 100% {
+    opacity: 0.2;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
 /* ---------- Markdown ---------- */
 .msg.assistant a,
 .tile-md a,

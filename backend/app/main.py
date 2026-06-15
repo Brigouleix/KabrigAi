@@ -20,10 +20,10 @@ from .agenda import create_event as agenda_create, delete_event as agenda_delete
 from . import spotify as sp
 from .prefs import SPORT_FEEDS, get_prefs, set_prefs
 from .todos import get_todos as get_todos_list
-from .tools import TOOL_DEFINITIONS, execute_tool, get_weather, web_search
+from .tools import execute_tool, get_weather, select_tools, web_search
 
 OLLAMA_URL = "http://localhost:11434"
-MODEL_LIGHT = "qwen2.5:7b"
+MODEL_LIGHT = "qwen2.5:3b"  # chemin rapide (~2x plus vite que le 7b sur ce GPU)
 MODEL_HEAVY = "qwen2.5:14b"
 MAX_TOOL_ROUNDS = 5
 NUM_CTX = 16384  # défaut Ollama = 4096, trop petit pour 19 tools + historique
@@ -180,6 +180,8 @@ async def chat(req: ChatRequest):
     model = route_query(req.messages)
     history = await compress_history(req.messages)
     convo = [{"role": "system", "content": system_prompt()}] + history
+    # Seuls les tools pertinents : réduit le prompt de ~24 à ~10 définitions.
+    tools = select_tools(req.messages[-1].content)
 
     async def stream():
         yield json.dumps({"type": "model", "model": model}) + "\n"
@@ -192,7 +194,7 @@ async def chat(req: ChatRequest):
                     json={
                         "model": model,
                         "messages": convo,
-                        "tools": TOOL_DEFINITIONS,
+                        "tools": tools,
                         "stream": False,
                         "keep_alive": KEEP_ALIVE,
                         # Température basse : stabilise le format des tool calls.

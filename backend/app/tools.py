@@ -461,6 +461,68 @@ TOOL_DEFINITIONS = FINANCE_TOOL_DEFINITIONS + [CHART_TOOL_DEFINITION] + [
 ] + RAG_TOOL_DEFINITIONS + [ROUTE_TOOL_DEFINITION, DOCUMENT_TOOL_DEFINITION, PREFS_TOOL_DEFINITION] + AGENDA_TOOL_DEFINITIONS + TODO_TOOL_DEFINITIONS
 
 
+def _by_name(*names: str) -> list[dict]:
+    return [t for t in TOOL_DEFINITIONS if t["function"]["name"] in names]
+
+
+# Groupes de tools activés par mots-clés. But : n'envoyer au LLM que les tools
+# pertinents (sinon ~24 définitions = ~4000 tokens à traiter à chaque round,
+# ce qui écroule la vitesse sur GPU modeste).
+CORE_TOOLS = _by_name(
+    "web_search", "get_weather",
+    "add_todo", "list_todos", "complete_todo", "delete_todo",
+    "create_event", "list_events", "delete_event",
+)
+TOOL_GROUPS: list[tuple[tuple[str, ...], list[dict]]] = [
+    (
+        ("bourse", "crypto", "action", "bitcoin", "ethereum", "marché", "marche",
+         "économie", "economie", "investir", "cours", "btc", "eth", "nasdaq", "cac"),
+        _by_name("crypto_data", "stock_data", "market_overview", "create_chart"),
+    ),
+    (
+        ("graphique", "graph", "courbe", "diagramme", "camembert", "histogramme"),
+        _by_name("create_chart"),
+    ),
+    (
+        ("vol", "vols", "avion", "hôtel", "hotel", "logement", "airbnb", "booking",
+         "itinéraire", "itineraire", "route", "trajet", "voyage", "aller à", "aller a"),
+        _by_name("travel_links", "get_route"),
+    ),
+    (
+        ("document", "fichier", "pdf", "word", "docx", "excel", "résume", "resume",
+         "synthèse", "synthese", "rapport", "lis ", "lire", "indexe"),
+        _by_name("read_document", "index_document", "search_documents", "create_document"),
+    ),
+    (
+        ("mail", "e-mail", "email", "courriel", "envoie", "écris à", "ecris a"),
+        _by_name("send_email"),
+    ),
+    (
+        ("read_webpage_kw", "page web", "lien", "url", "site ", "article"),
+        _by_name("read_webpage"),
+    ),
+    (
+        ("tuile", "accueil", "dashboard", "appelle-moi", "appelle moi", "renomme",
+         "affiche la", "masque la", "cache la", "préférence", "preference", "spotify"),
+        _by_name("update_preferences"),
+    ),
+]
+
+
+def select_tools(text: str) -> list[dict]:
+    """Sous-ensemble pertinent de tools selon la requête (core + groupes matchés)."""
+    low = text.lower()
+    selected = list(CORE_TOOLS)
+    seen = {t["function"]["name"] for t in selected}
+    for keywords, group in TOOL_GROUPS:
+        if any(kw in low for kw in keywords):
+            for t in group:
+                if t["function"]["name"] not in seen:
+                    selected.append(t)
+                    seen.add(t["function"]["name"])
+    return selected
+
+
 async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
     """Retourne (texte pour le LLM, widget UI optionnel)."""
     try:
