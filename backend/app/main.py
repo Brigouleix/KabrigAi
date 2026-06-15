@@ -4,6 +4,8 @@ Deux LLMs locaux via Ollama :
 - LIGHT : routage, classification, tâches rapides
 - HEAVY : synthèse, rédaction, raisonnement, tool calling complexe
 """
+from __future__ import annotations
+
 import asyncio
 import json
 from pathlib import Path
@@ -27,6 +29,34 @@ MAX_TOOL_ROUNDS = 5
 NUM_CTX = 16384  # défaut Ollama = 4096, trop petit pour 19 tools + historique
 MEMORY_THRESHOLD = 12  # au-delà, on résume les anciens messages
 MEMORY_KEEP_RECENT = 6  # messages récents conservés tels quels
+KEEP_ALIVE = "30m"  # garde le modèle chaud : pas de rechargement à froid entre 2 requêtes
+
+# Mots-clés qui justifient le gros modèle (rédaction, analyse, raisonnement).
+# Routage instantané : évite un appel d'inférence entier juste pour décider.
+HEAVY_KEYWORDS = (
+    "rédige", "redige", "écris", "ecris", "écrire", "rédaction", "mail", "e-mail",
+    "courriel", "lettre", "analyse", "analyser", "synthèse", "synthese",
+    "synthétise", "synthetise", "résume", "resume", "résumé", "document", "pdf",
+    "docx", "rapport", "word", "excel", "bourse", "crypto", "action", "bitcoin",
+    "ethereum", "marché", "marche", "économie", "economie", "investir",
+    "investissement", "portefeuille", "compare", "comparer", "comparaison",
+    "explique", "expliquer", "pourquoi", "stratégie", "strategie", "graphique",
+    "graph", "courbe", "vol", "vols", "hôtel", "hotel", "itinéraire", "itineraire",
+    "voyage", "code", "programme", "script", "traduis", "traduire", "argumente",
+)
+
+
+def route_query(messages: list[ChatMessage]) -> str:
+    """Routage par mots-clés (instantané, sans inférence).
+
+    HEAVY si la requête évoque rédaction/analyse/raisonnement, ou si elle est
+    longue (>180 caractères = demande complexe). LIGHT sinon (météo, todo,
+    agenda, salutations, questions courtes).
+    """
+    last = messages[-1].content.lower()
+    if len(last) > 180 or any(kw in last for kw in HEAVY_KEYWORDS):
+        return MODEL_HEAVY
+    return MODEL_LIGHT
 
 def system_prompt() -> str:
     from datetime import date
@@ -73,6 +103,29 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+async def warmup():
+    """Préchauffe UNIQUEMENT le modèle léger (le plus utilisé).
+
+    NB : ne JAMAIS charger les deux modèles en même temps — sur un GPU limité
+    ils se battent pour la VRAM et Ollama se bloque. Le gros modèle se charge
+    à la demande et reste chaud (keep_alive) le temps d'une session.
+    """
+
+    async def _load():
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                await client.post(
+                    f"{OLLAMA_URL}/api/generate",
+                    json={"model": MODEL_LIGHT, "prompt": "ok", "stream": False,
+                          "keep_alive": KEEP_ALIVE, "options": {"num_predict": 1}},
+                )
+        except httpx.HTTPError:
+            pass
+
+    asyncio.create_task(_load())  # en tâche de fond, ne bloque pas le démarrage
+
+
 class ChatMessage(BaseModel):
     role: str
     content: str
@@ -94,28 +147,6 @@ async def health():
         return {"status": "degraded", "ollama": False, "models": []}
 
 
-async def route_query(messages: list[ChatMessage]) -> str:
-    """Le modèle léger décide si la requête nécessite le gros modèle."""
-    last = messages[-1].content
-    prompt = (
-        "Tu es un routeur. Réponds uniquement par LIGHT ou HEAVY.\n"
-        "LIGHT : salutations, questions simples, météo, gestion de notes, "
-        "recherche internet simple.\n"
-        "HEAVY : rédaction (mails, textes), synthèse de documents ou de pages "
-        "web, raisonnement complexe, recherche de vols ou d'hôtels, analyse "
-        "financière (crypto, bourse, économie).\n"
-        f"Requête : {last}"
-    )
-    async with httpx.AsyncClient() as client:
-        r = await client.post(
-            f"{OLLAMA_URL}/api/generate",
-            json={"model": MODEL_LIGHT, "prompt": prompt, "stream": False},
-            timeout=60,
-        )
-    answer = r.json().get("response", "").strip().upper()
-    return MODEL_HEAVY if "HEAVY" in answer else MODEL_LIGHT
-
-
 async def compress_history(messages: list[ChatMessage]) -> list[dict]:
     """Résume les anciens messages avec le modèle léger pour économiser le contexte."""
     if len(messages) <= MEMORY_THRESHOLD:
@@ -132,6 +163,7 @@ async def compress_history(messages: list[ChatMessage]) -> list[dict]:
                     "les faits et décisions importants :\n\n" + transcript
                 ),
                 "stream": False,
+                "keep_alive": KEEP_ALIVE,
             },
             timeout=120,
         )
@@ -145,7 +177,7 @@ async def compress_history(messages: list[ChatMessage]) -> list[dict]:
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     """Chat avec tool calling : boucle tools (non-streamé) puis réponse streamée."""
-    model = await route_query(req.messages)
+    model = route_query(req.messages)
     history = await compress_history(req.messages)
     convo = [{"role": "system", "content": system_prompt()}] + history
 
@@ -162,6 +194,7 @@ async def chat(req: ChatRequest):
                         "messages": convo,
                         "tools": TOOL_DEFINITIONS,
                         "stream": False,
+                        "keep_alive": KEEP_ALIVE,
                         # Température basse : stabilise le format des tool calls.
                         "options": {"num_ctx": NUM_CTX, "temperature": 0.2},
                     },
@@ -199,6 +232,7 @@ async def chat(req: ChatRequest):
                     "model": model,
                     "messages": convo,
                     "stream": True,
+                    "keep_alive": KEEP_ALIVE,
                     "options": {"num_ctx": NUM_CTX},
                 },
             ) as r:
