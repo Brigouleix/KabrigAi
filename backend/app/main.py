@@ -30,6 +30,12 @@ NUM_CTX = 16384  # défaut Ollama = 4096, trop petit pour 19 tools + historique
 MEMORY_THRESHOLD = 12  # au-delà, on résume les anciens messages
 MEMORY_KEEP_RECENT = 6  # messages récents conservés tels quels
 KEEP_ALIVE = "30m"  # garde le modèle chaud : pas de rechargement à froid entre 2 requêtes
+# Tools dont le résultat est une confirmation finale : pas besoin que le modèle
+# repasse derrière pour paraphraser (économise un tour de génération très lent).
+TERMINAL_TOOLS = {
+    "create_document", "send_email", "add_todo", "complete_todo", "delete_todo",
+    "create_event", "delete_event", "update_preferences",
+}
 
 # Mots-clés qui justifient le gros modèle (rédaction, analyse, raisonnement).
 # Routage instantané : évite un appel d'inférence entier juste pour décider.
@@ -214,6 +220,7 @@ async def chat(req: ChatRequest):
                     break
 
                 convo.append(msg)
+                terminal_results = []
                 for call in tool_calls:
                     fn = call["function"]
                     name = fn["name"]
@@ -225,6 +232,19 @@ async def chat(req: ChatRequest):
                     if widget:
                         yield json.dumps({"type": "widget", **widget}) + "\n"
                     convo.append({"role": "tool", "content": result})
+                    if name in TERMINAL_TOOLS:
+                        terminal_results.append(result)
+
+                # Court-circuit : si tous les tools de ce round sont "terminaux"
+                # (créent un artefact / confirment une action), le résultat se
+                # suffit à lui-même. On évite un 2e tour de modèle (très lent sur
+                # GPU modeste) qui ne ferait que paraphraser la confirmation.
+                if terminal_results and len(terminal_results) == len(tool_calls):
+                    yield json.dumps(
+                        {"type": "token", "content": "✅ " + "\n".join(terminal_results)}
+                    ) + "\n"
+                    yield json.dumps({"type": "done"}) + "\n"
+                    return
 
             # Réponse finale streamée (sans tools pour forcer la synthèse).
             async with client.stream(

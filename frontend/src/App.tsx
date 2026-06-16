@@ -524,7 +524,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
   }
 
   async function toggleSport(sport: string) {
-    const current = data?.prefs.sports ?? ["tous"];
+    const current = data?.prefs?.sports ?? ["tous"];
     let next: string[];
     if (sport === "tous") {
       next = ["tous"];
@@ -577,9 +577,9 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
 
   async function cycleSize(tile: string) {
     const order: ("s" | "m" | "l")[] = ["m", "l", "s"];
-    const current = data?.prefs.sizes?.[tile] ?? "m";
+    const current = data?.prefs?.sizes?.[tile] ?? "m";
     const next = order[(order.indexOf(current) + 1) % order.length];
-    const sizes = { ...(data?.prefs.sizes ?? {}), [tile]: next };
+    const sizes = { ...(data?.prefs?.sizes ?? {}), [tile]: next };
     await fetch(`${BACKEND}/api/prefs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -593,7 +593,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
 
   function tileClass(tile: string) {
     const dropping = overKey === tile && dragKey && dragKey !== tile ? " drop-target" : "";
-    return `tile size-${data?.prefs.sizes?.[tile] ?? "m"}${dragKey === tile ? " dragging" : ""}${dropping}`;
+    return `tile size-${data?.prefs?.sizes?.[tile] ?? "m"}${dragKey === tile ? " dragging" : ""}${dropping}`;
   }
 
   // NB : ne PAS réordonner le DOM pendant le drag — Chrome/WebView2 annule le
@@ -644,7 +644,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
   }
 
   function SizeBtn({ tile }: { tile: string }) {
-    const size = data?.prefs.sizes?.[tile] ?? "m";
+    const size = data?.prefs?.sizes?.[tile] ?? "m";
     return (
       <button className="size-btn" title="Taille (petit/moyen/grand)" onClick={() => cycleSize(tile)}>
         {size.toUpperCase()}
@@ -653,7 +653,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
   }
 
   const weather = (data?.weather as { data?: WeatherData })?.data ?? (data?.weather as WeatherData | null);
-  const tiles = data?.prefs.tiles ?? ["weather", "agenda", "sport", "sorties"];
+  const tiles = data?.prefs?.tiles ?? ["weather", "agenda", "sport", "sorties"];
 
   return (
     <main className="dashboard">
@@ -794,7 +794,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                   {ALL_SPORTS.map((s) => (
                     <button
                       key={s}
-                      className={`chip small ${data?.prefs.sports.includes(s) ? "active" : ""}`}
+                      className={`chip small ${data?.prefs?.sports?.includes(s) ? "active" : ""}`}
                       onClick={() => toggleSport(s)}
                     >
                       {s}
@@ -945,7 +945,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             );
           if (t.startsWith("custom:")) {
             const id = t.slice(7);
-            const def = data?.prefs.custom.find((c) => c.id === id);
+            const def = data?.prefs?.custom?.find((c) => c.id === id);
             const items = data?.custom?.[id] ?? [];
             return (
               <Tile className={tileClass(t)} key={t} drag={dragProps(t)}>
