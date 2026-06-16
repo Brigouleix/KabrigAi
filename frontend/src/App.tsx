@@ -1234,6 +1234,15 @@ function App() {
   }
 
 
+  const [theme, setTheme] = useState<"light" | "dark">(
+    () => (localStorage.getItem("kabrig-theme") as "light" | "dark") || "light"
+  );
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("kabrig-theme", theme);
+  }, [theme]);
+
   useEffect(() => {
     fetch(`${BACKEND}/api/health`)
       .then((r) => r.json())
@@ -1260,9 +1269,18 @@ function App() {
             </button>
           ))}
         </nav>
-        <span className={`status ${health?.ollama ? "ok" : "ko"}`}>
-          {health === null ? "…" : health.ollama ? "En ligne" : "Hors ligne"}
-        </span>
+        <div className="header-right">
+          <button
+            className="theme-toggle"
+            onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+            title={theme === "light" ? "Mode sombre" : "Mode clair"}
+          >
+            {theme === "light" ? "🌙" : "☀️"}
+          </button>
+          <span className={`status ${health?.ollama ? "ok" : "ko"}`}>
+            {health === null ? "…" : health.ollama ? "En ligne" : "Hors ligne"}
+          </span>
+        </div>
       </header>
 
       {tab === "accueil" && <HomeView goChat={goChat} />}

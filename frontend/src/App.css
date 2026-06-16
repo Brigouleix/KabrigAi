@@ -4,27 +4,51 @@
 }
 
 :root {
-  --bg: #f4f2ed;
+  /* ----- Thème clair (minimaliste) ----- */
+  --bg: #fbfbfa;
   --card: #ffffff;
-  --card-soft: #f8f6f1;
-  --border: #ebe8e1;
-  --border-strong: #ddd8cf;
+  --card-soft: #f5f5f3;
+  --border: #eceae6;
+  --border-strong: #ddd9d2;
   --text: #1a1a1c;
-  --muted: #918d86;
+  --muted: #9c9893;
   --accent: #ee9a4f;
   --accent-2: #e2674e;
-  --accent-soft: #fbeadb;
-  --dark: #18181a;
+  --accent-soft: #f8ece1;
+  --pill: #18181a;
+  --pill-text: #ffffff;
   --green: #2fa46d;
   --red: #d65745;
-  --radius: 20px;
-  --radius-sm: 14px;
-  /* Ombres en couches pour la profondeur (style apps modernes). */
-  --shadow-sm: 0 1px 2px rgba(28, 24, 18, 0.04), 0 1px 3px rgba(28, 24, 18, 0.05);
-  --shadow-md: 0 2px 4px rgba(28, 24, 18, 0.04), 0 6px 16px rgba(28, 24, 18, 0.07);
-  --shadow-lg: 0 8px 16px rgba(28, 24, 18, 0.06), 0 18px 40px rgba(28, 24, 18, 0.10);
+  --header-bg: rgba(251, 251, 250, 0.7);
+  --radius: 18px;
+  --radius-sm: 13px;
+  /* Ombres discrètes (minimaliste). */
+  --shadow-sm: 0 1px 2px rgba(20, 18, 14, 0.03);
+  --shadow-md: 0 2px 6px rgba(20, 18, 14, 0.05), 0 8px 20px rgba(20, 18, 14, 0.05);
+  --shadow-lg: 0 8px 16px rgba(20, 18, 14, 0.06), 0 18px 40px rgba(20, 18, 14, 0.10);
   --grad-accent: linear-gradient(135deg, #ee9a4f, #e2674e);
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e0e11;
+  --card: #18181d;
+  --card-soft: #202027;
+  --border: #2a2a31;
+  --border-strong: #3a3a43;
+  --text: #ecebf0;
+  --muted: #8b8a94;
+  --accent: #f0a55e;
+  --accent-2: #e87a5f;
+  --accent-soft: #2a2118;
+  --pill: #ecebf0;
+  --pill-text: #18181d;
+  --green: #3fcf86;
+  --red: #ff6b5c;
+  --header-bg: rgba(14, 14, 17, 0.72);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.35), 0 8px 20px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.4), 0 18px 40px rgba(0, 0, 0, 0.55);
 }
 
 * {
@@ -35,11 +59,8 @@
 body {
   font-family: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
   color: var(--text);
-  background:
-    radial-gradient(1100px 600px at 88% -8%, rgba(238, 154, 79, 0.10), transparent 55%),
-    radial-gradient(900px 520px at -6% 108%, rgba(226, 103, 78, 0.08), transparent 55%),
-    var(--bg);
-  background-attachment: fixed;
+  background: var(--bg);
+  transition: background 0.3s var(--ease), color 0.3s var(--ease);
 }
 
 .app {
@@ -62,9 +83,9 @@ header {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(244, 242, 237, 0.72);
+  background: var(--header-bg);
   backdrop-filter: saturate(1.4) blur(14px);
-  border-bottom: 1px solid rgba(235, 232, 225, 0.7);
+  border-bottom: 1px solid var(--border);
 }
 
 header h1 {
@@ -125,13 +146,41 @@ header nav button:hover {
 }
 
 header nav button.active {
-  background: var(--dark);
-  color: #fff;
+  background: var(--pill);
+  color: var(--pill-text);
   box-shadow: var(--shadow-sm);
 }
 
 header nav button:active {
   transform: scale(0.96);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-toggle {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 999px;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s var(--ease), border-color 0.18s var(--ease);
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.theme-toggle:active {
+  transform: scale(0.94);
 }
 
 .status {
@@ -211,8 +260,8 @@ main {
 
 .msg.user {
   align-self: flex-end;
-  background: var(--dark);
-  color: #fff;
+  background: var(--pill);
+  color: var(--pill-text);
   border-bottom-right-radius: 7px;
   white-space: pre-wrap;
   box-shadow: var(--shadow-md);
@@ -243,7 +292,7 @@ main {
   display: inline-block;
   font-size: 11px;
   font-weight: 600;
-  color: #b06a1f;
+  color: var(--accent-2);
   background: var(--accent-soft);
   border-radius: 999px;
   padding: 3px 11px;
@@ -316,7 +365,7 @@ main {
 .msg.assistant a,
 .tile-md a,
 .tile-list a {
-  color: #c2702a;
+  color: var(--accent-2);
   text-decoration: none;
   border-bottom: 1px solid rgba(240, 160, 90, 0.5);
 }
@@ -459,8 +508,8 @@ footer button:disabled {
 
 .dash-city button {
   border: none;
-  background: var(--dark);
-  color: #fff;
+  background: var(--pill);
+  color: var(--pill-text);
   border-radius: 999px;
   width: 38px;
   cursor: pointer;
@@ -504,9 +553,9 @@ footer button:disabled {
 }
 
 .chip.active {
-  background: var(--dark);
-  border-color: var(--dark);
-  color: #fff;
+  background: var(--pill);
+  border-color: var(--pill);
+  color: var(--pill-text);
 }
 
 .sport-filters {
@@ -520,7 +569,7 @@ footer button:disabled {
   margin-left: 8px;
   font-size: 11px;
   font-weight: 700;
-  color: #c2702a;
+  color: var(--accent-2);
   background: var(--accent-soft);
   border-radius: 999px;
   padding: 2px 9px;
@@ -640,7 +689,7 @@ footer button:disabled {
 .chat-side {
   width: 250px;
   border-left: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--card-soft);
   display: flex;
   flex-direction: column;
   padding: 14px 12px;
@@ -651,8 +700,8 @@ footer button:disabled {
 
 .new-chat {
   border: none;
-  background: var(--dark);
-  color: #fff;
+  background: var(--pill);
+  color: var(--pill-text);
   border-radius: 12px;
   padding: 11px;
   font-size: 13px;
@@ -771,8 +820,8 @@ footer button:disabled {
 
 .lightbox-actions button {
   border: none;
-  background: var(--dark);
-  color: #fff;
+  background: var(--pill);
+  color: var(--pill-text);
   border-radius: 999px;
   padding: 10px 18px;
   font-size: 13px;
@@ -837,12 +886,12 @@ footer button:disabled {
   list-style: none;
   padding: 8px 0 0;
   margin-top: 10px;
-  border-top: 1px solid #f3d9bd;
+  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-size: 12.5px;
-  color: #7a5c38;
+  color: var(--muted);
 }
 
 .size-btn {
@@ -861,7 +910,7 @@ footer button:disabled {
 
 .size-btn:hover {
   background: var(--accent-soft);
-  color: #b06a1f;
+  color: var(--accent-2);
 }
 
 .del-tile:hover {
@@ -919,8 +968,8 @@ footer button:disabled {
 }
 
 .spotify-controls button:hover {
-  background: var(--dark);
-  color: #fff;
+  background: var(--pill);
+  color: var(--pill-text);
 }
 
 .tile {
@@ -975,7 +1024,7 @@ footer button:disabled {
 
 .event-date {
   font-weight: 700;
-  color: #c2702a;
+  color: var(--accent-2);
   white-space: nowrap;
   font-size: 12.5px;
 }
@@ -1007,8 +1056,8 @@ footer button:disabled {
 
 .agenda-fields button {
   border: none;
-  background: var(--dark);
-  color: #fff;
+  background: var(--pill);
+  color: var(--pill-text);
   border-radius: 12px;
   padding: 10px 20px;
   font-weight: 600;
@@ -1189,8 +1238,8 @@ li.done .todo-check {
 
 .save-btn {
   border: none;
-  background: var(--dark);
-  color: #fff;
+  background: var(--pill);
+  color: var(--pill-text);
   border-radius: 10px;
   padding: 11px 20px;
   font-weight: 600;
@@ -1266,8 +1315,8 @@ li.done .todo-check {
 
 /* ---------- Widgets ---------- */
 .weather-card {
-  background: linear-gradient(135deg, var(--accent-soft), #fff7ef);
-  border: 1px solid #f3d9bd;
+  background: linear-gradient(135deg, var(--accent-soft), var(--card));
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 14px;
   margin-bottom: 10px;
@@ -1291,12 +1340,12 @@ li.done .todo-check {
 
 .weather-city {
   font-size: 13px;
-  color: #9b6e3f;
+  color: var(--muted);
 }
 
 .weather-desc {
   font-size: 12px;
-  color: #b08a5e;
+  color: var(--muted);
   text-transform: capitalize;
 }
 
@@ -1306,7 +1355,7 @@ li.done .todo-check {
   gap: 6px 14px;
   margin-top: 12px;
   font-size: 12.5px;
-  color: #9b6e3f;
+  color: var(--muted);
 }
 
 .weather-minmax em {
@@ -1327,7 +1376,7 @@ li.done .todo-check {
   overflow-x: auto;
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid #f3d9bd;
+  border-top: 1px solid var(--border);
 }
 
 .weather-day {
@@ -1337,7 +1386,7 @@ li.done .todo-check {
   align-items: center;
   gap: 2px;
   font-size: 12px;
-  color: #9b6e3f;
+  color: var(--muted);
 }
 
 .route-card {
