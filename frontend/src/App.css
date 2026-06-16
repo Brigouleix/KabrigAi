@@ -189,41 +189,24 @@ main {
 
 /* ---------- Sphère IA + réflexion ---------- */
 .ai-sphere {
-  display: inline-block;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
+  display: inline-flex;
   flex-shrink: 0;
-  background: radial-gradient(circle at 32% 30%, #ffd9b0 0%, #f0a05a 38%, #c2702a 70%, #8a4d18 100%);
-  box-shadow: 0 0 14px rgba(240, 160, 90, 0.55), inset 0 0 8px rgba(255, 255, 255, 0.4);
-  animation: sphere-pulse 2.4s ease-in-out infinite, sphere-morph 5s ease-in-out infinite;
+  border-radius: 50%;
+  animation: sphere-breathe 3.2s ease-in-out infinite;
 }
 
-.ai-sphere.small {
-  width: 18px;
-  height: 18px;
+.ai-sphere svg {
+  display: block;
 }
 
-@keyframes sphere-pulse {
+@keyframes sphere-breathe {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 0 12px rgba(240, 160, 90, 0.45), inset 0 0 8px rgba(255, 255, 255, 0.4);
+    filter: drop-shadow(0 0 5px rgba(155, 109, 255, 0.4));
   }
   50% {
-    transform: scale(1.12);
-    box-shadow: 0 0 22px rgba(240, 160, 90, 0.75), inset 0 0 10px rgba(255, 255, 255, 0.55);
-  }
-}
-
-@keyframes sphere-morph {
-  0%, 100% {
-    border-radius: 50% 50% 50% 50%;
-  }
-  33% {
-    border-radius: 54% 46% 52% 48%;
-  }
-  66% {
-    border-radius: 47% 53% 45% 55%;
+    transform: scale(1.06);
+    filter: drop-shadow(0 0 11px rgba(155, 109, 255, 0.6));
   }
 }
 

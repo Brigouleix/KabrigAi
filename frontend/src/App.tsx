@@ -99,8 +99,65 @@ const TILE_LABELS: Record<string, string> = {
 
 /* ---------------- Sphère IA + réflexion ---------------- */
 
-function Sphere({ small = false }: { small?: boolean }) {
-  return <span className={`ai-sphere ${small ? "small" : ""}`} aria-hidden />;
+function Sphere({ size = 30 }: { size?: number }) {
+  return (
+    <span className="ai-sphere" style={{ width: size, height: size }} aria-hidden>
+      <svg viewBox="0 0 120 120" width={size} height={size}>
+        <defs>
+          <radialGradient id="sph-glass" cx="42%" cy="38%" r="65%">
+            <stop offset="0%" stopColor="#3a3550" stopOpacity="0.55" />
+            <stop offset="70%" stopColor="#1a1730" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="#0c0a18" stopOpacity="0.95" />
+          </radialGradient>
+          <linearGradient id="sph-wave" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#ff6ec4" />
+            <stop offset="35%" stopColor="#9b6dff" />
+            <stop offset="65%" stopColor="#5a8df0" />
+            <stop offset="100%" stopColor="#f0a05a" />
+          </linearGradient>
+          <radialGradient id="sph-halo" cx="50%" cy="50%" r="50%">
+            <stop offset="55%" stopColor="#9b6dff" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#9b6dff" stopOpacity="0" />
+          </radialGradient>
+          <filter id="sph-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="3.2" />
+          </filter>
+          <clipPath id="sph-ball">
+            <circle cx="60" cy="60" r="46" />
+          </clipPath>
+        </defs>
+
+        <circle cx="60" cy="60" r="58" fill="url(#sph-halo)" />
+        <circle cx="60" cy="60" r="46" fill="url(#sph-glass)" />
+
+        <g clipPath="url(#sph-ball)">
+          {/* ruban flou (glow) */}
+          <path fill="none" stroke="url(#sph-wave)" strokeWidth="7" strokeLinecap="round"
+                filter="url(#sph-glow)" opacity="0.85">
+            <animate attributeName="d" dur="3.2s" repeatCount="indefinite"
+              values="M8,62 Q34,42 60,60 T112,58;
+                      M8,58 Q34,74 60,52 T112,64;
+                      M8,64 Q34,48 60,66 T112,52;
+                      M8,62 Q34,42 60,60 T112,58" />
+          </path>
+          {/* cœur lumineux net */}
+          <path fill="none" stroke="url(#sph-wave)" strokeWidth="2.5" strokeLinecap="round">
+            <animate attributeName="d" dur="3.2s" repeatCount="indefinite"
+              values="M8,62 Q34,42 60,60 T112,58;
+                      M8,58 Q34,74 60,52 T112,64;
+                      M8,64 Q34,48 60,66 T112,52;
+                      M8,62 Q34,42 60,60 T112,58" />
+          </path>
+        </g>
+
+        {/* contour verre + reflet */}
+        <circle cx="60" cy="60" r="46" fill="none" stroke="url(#sph-wave)"
+                strokeWidth="1.3" opacity="0.45" />
+        <ellipse cx="44" cy="40" rx="14" ry="8" fill="#fff" opacity="0.12"
+                 transform="rotate(-28 44 40)" />
+      </svg>
+    </span>
+  );
 }
 
 // Libellés "réflexion" lisibles pour chaque tool.
