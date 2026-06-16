@@ -1249,7 +1249,10 @@ function App() {
   return (
     <div className="app">
       <header>
-        <h1>⚡ Kabrig</h1>
+        <h1>
+          <span className="logo-dot" />
+          <span className="logo-name">Kabrig</span>
+        </h1>
         <nav>
           {(["accueil", "chat", "agenda", "reglages"] as Tab[]).map((t) => (
             <button key={t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>

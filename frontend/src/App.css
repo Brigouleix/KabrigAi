@@ -4,30 +4,52 @@
 }
 
 :root {
-  --bg: #f3f1ec;
+  --bg: #f4f2ed;
   --card: #ffffff;
-  --card-soft: #faf9f6;
-  --border: #e8e5de;
-  --text: #1c1c1e;
-  --muted: #8a8782;
-  --accent: #f0a05a;
+  --card-soft: #f8f6f1;
+  --border: #ebe8e1;
+  --border-strong: #ddd8cf;
+  --text: #1a1a1c;
+  --muted: #918d86;
+  --accent: #ee9a4f;
+  --accent-2: #e2674e;
   --accent-soft: #fbeadb;
-  --dark: #161616;
-  --green: #34a872;
+  --dark: #18181a;
+  --green: #2fa46d;
   --red: #d65745;
-  --radius: 18px;
+  --radius: 20px;
+  --radius-sm: 14px;
+  /* Ombres en couches pour la profondeur (style apps modernes). */
+  --shadow-sm: 0 1px 2px rgba(28, 24, 18, 0.04), 0 1px 3px rgba(28, 24, 18, 0.05);
+  --shadow-md: 0 2px 4px rgba(28, 24, 18, 0.04), 0 6px 16px rgba(28, 24, 18, 0.07);
+  --shadow-lg: 0 8px 16px rgba(28, 24, 18, 0.06), 0 18px 40px rgba(28, 24, 18, 0.10);
+  --grad-accent: linear-gradient(135deg, #ee9a4f, #e2674e);
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 body {
-  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-  background: var(--bg);
+  font-family: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
   color: var(--text);
+  background:
+    radial-gradient(1100px 600px at 88% -8%, rgba(238, 154, 79, 0.10), transparent 55%),
+    radial-gradient(900px 520px at -6% 108%, rgba(226, 103, 78, 0.08), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
 }
 
 .app {
   display: flex;
   flex-direction: column;
   height: 100vh;
+}
+
+::selection {
+  background: var(--accent-soft);
 }
 
 /* ---------- Header ---------- */
@@ -37,39 +59,79 @@ header {
   justify-content: space-between;
   padding: 14px 24px;
   gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(244, 242, 237, 0.72);
+  backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid rgba(235, 232, 225, 0.7);
 }
 
 header h1 {
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 800;
-  letter-spacing: 0.2px;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.logo-dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: conic-gradient(from 130deg, #ee9a4f, #e2674e, #9b6dff, #5a8df0, #ee9a4f);
+  box-shadow: 0 0 10px rgba(226, 103, 78, 0.5);
+  animation: logo-spin 6s linear infinite;
+}
+
+@keyframes logo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.logo-name {
+  background: var(--grad-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 header nav {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
 }
 
 header nav button {
   border: none;
   background: transparent;
-  padding: 8px 20px;
+  padding: 8px 18px;
   border-radius: 999px;
   font-size: 13.5px;
   font-weight: 600;
   color: var(--muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: color 0.2s var(--ease), background 0.2s var(--ease), transform 0.1s var(--ease);
+}
+
+header nav button:hover {
+  color: var(--text);
 }
 
 header nav button.active {
   background: var(--dark);
   color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+header nav button:active {
+  transform: scale(0.96);
 }
 
 .status {
@@ -129,17 +191,17 @@ main {
 
 .msg {
   max-width: 74%;
-  padding: 12px 16px;
+  padding: 13px 17px;
   border-radius: var(--radius);
-  line-height: 1.55;
+  line-height: 1.6;
   font-size: 14px;
-  animation: rise 0.25s ease both;
+  animation: rise 0.3s var(--ease) both;
 }
 
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px) scale(0.99);
   }
   to {
     opacity: 1;
@@ -151,16 +213,17 @@ main {
   align-self: flex-end;
   background: var(--dark);
   color: #fff;
-  border-bottom-right-radius: 6px;
+  border-bottom-right-radius: 7px;
   white-space: pre-wrap;
+  box-shadow: var(--shadow-md);
 }
 
 .msg.assistant {
   align-self: flex-start;
   background: var(--card);
   border: 1px solid var(--border);
-  border-bottom-left-radius: 6px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  border-bottom-left-radius: 7px;
+  box-shadow: var(--shadow-sm);
 }
 
 .msg.assistant p {
@@ -306,19 +369,26 @@ footer input:focus {
 }
 
 footer button {
-  padding: 13px 22px;
+  padding: 13px 24px;
   border-radius: 999px;
   border: none;
-  background: var(--dark);
+  background: var(--grad-accent);
   color: #fff;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  transition: transform 0.1s, opacity 0.15s;
+  box-shadow: 0 4px 14px rgba(226, 103, 78, 0.28);
+  transition: transform 0.12s var(--ease), box-shadow 0.2s var(--ease), filter 0.2s var(--ease);
 }
 
 footer button:hover:not(:disabled) {
-  transform: translateY(-1px);
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 20px rgba(226, 103, 78, 0.38);
+  filter: brightness(1.04);
+}
+
+footer button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 footer button.stop {
@@ -349,8 +419,9 @@ footer button:disabled {
 }
 
 .dash-bar h2 {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 800;
+  letter-spacing: -0.6px;
 }
 
 .wave {
@@ -411,12 +482,19 @@ footer button:disabled {
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
-  transition: all 0.15s;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.18s var(--ease), border-color 0.18s var(--ease),
+    transform 0.1s var(--ease), box-shadow 0.18s var(--ease);
 }
 
 .chip:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.chip:active {
+  transform: scale(0.96);
 }
 
 .chip.small {
@@ -518,7 +596,14 @@ footer button:disabled {
   margin-bottom: 16px;
   scrollbar-width: thin;
   cursor: grab;
-  transition: box-shadow 0.15s, opacity 0.15s, transform 0.15s;
+  transition: box-shadow 0.22s var(--ease), opacity 0.15s, transform 0.22s var(--ease),
+    border-color 0.22s var(--ease);
+}
+
+.tiles .tile:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
 }
 
 .tiles .tile.size-s {
@@ -843,13 +928,17 @@ footer button:disabled {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 18px;
-  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
 }
 
 .tile h3 {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  letter-spacing: -0.1px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .tile-empty {
