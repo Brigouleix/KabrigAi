@@ -1200,6 +1200,125 @@ li.done .todo-check {
   text-decoration: underline;
 }
 
+/* ---------- Notes ---------- */
+.notes-add {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.notes-add input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-soft);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+
+.notes-add input:focus {
+  border-color: var(--accent);
+}
+
+.notes-add button {
+  border: none;
+  background: var(--pill);
+  color: var(--pill-text);
+  border-radius: 10px;
+  width: 38px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.notes-add button:disabled {
+  opacity: 0.4;
+}
+
+.note-folder {
+  margin-bottom: 10px;
+}
+
+.note-folder-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 8px 0 4px;
+  letter-spacing: 0.2px;
+}
+
+.note-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 5px;
+  background: var(--card-soft);
+}
+
+.note-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+
+.note-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.note-del {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.note-item:hover .note-del {
+  opacity: 0.75;
+}
+
+.note-editor {
+  padding: 0 10px 10px;
+}
+
+.note-editor textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  padding: 9px 11px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  margin-bottom: 6px;
+}
+
+.note-editor textarea:focus {
+  border-color: var(--accent);
+}
+
+.note-editor button {
+  border: none;
+  background: var(--grad-accent);
+  color: #fff;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* ---------- Réglages ---------- */
 .settings {
   gap: 16px;

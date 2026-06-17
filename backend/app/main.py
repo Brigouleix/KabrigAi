@@ -20,6 +20,7 @@ from .agenda import create_event as agenda_create, delete_event as agenda_delete
 from . import spotify as sp
 from .prefs import SPORT_FEEDS, get_prefs, set_prefs
 from .todos import get_todos as get_todos_list
+from .notes import get_notes as get_notes_list
 from .tools import execute_tool, get_weather, select_tools, web_search
 
 OLLAMA_URL = "http://localhost:11434"
@@ -35,6 +36,7 @@ KEEP_ALIVE = "30m"  # garde le modèle chaud : pas de rechargement à froid entr
 TERMINAL_TOOLS = {
     "create_document", "send_email", "add_todo", "complete_todo", "delete_todo",
     "create_event", "delete_event", "update_preferences",
+    "create_note", "update_note", "delete_note",
 }
 
 # Mots-clés qui justifient le gros modèle (rédaction, analyse, raisonnement).
@@ -369,6 +371,39 @@ async def todos_clear_done():
     return {"todos": get_todos()}
 
 
+class NoteIn(BaseModel):
+    id: int | None = None
+    title: str
+    content: str = ""
+    folder: str = ""
+
+
+@app.get("/api/notes")
+async def notes_list():
+    from .notes import get_notes, list_folders
+
+    return {"notes": get_notes(), "folders": list_folders()}
+
+
+@app.post("/api/notes")
+async def notes_save(n: NoteIn):
+    from .notes import create_note, get_notes, list_folders, update_note
+
+    if n.id:
+        update_note(n.id, n.title, n.content, n.folder)
+    else:
+        create_note(n.title, n.content, n.folder)
+    return {"notes": get_notes(), "folders": list_folders()}
+
+
+@app.delete("/api/notes/{note_id}")
+async def notes_delete(note_id: int):
+    from .notes import delete_note, get_notes, list_folders
+
+    delete_note(note_id)
+    return {"notes": get_notes(), "folders": list_folders()}
+
+
 @app.get("/api/agenda")
 async def agenda_list(include_past: bool = False):
     return {"events": get_events(include_past)}
@@ -604,5 +639,6 @@ async def dashboard(city: str = ""):
         "custom": custom_data,
         "events": get_events()[:5],
         "todos": get_todos_list(),
+        "notes": get_notes_list(),
         "prefs": prefs,
     }

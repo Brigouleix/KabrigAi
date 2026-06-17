@@ -9,14 +9,14 @@ from pathlib import Path
 PREFS_PATH = Path(__file__).parent.parent / "prefs.json"
 
 VALID_SPORTS = ["tous", "football", "rugby", "tennis", "basket", "cyclisme", "formule 1"]
-VALID_TILES = ["weather", "todo", "agenda", "sport", "sorties", "mail", "spotify", "whatsapp"]
+VALID_TILES = ["weather", "todo", "notes", "agenda", "sport", "sorties", "mail", "spotify", "whatsapp"]
 
 DEFAULTS = {
     "user_name": "Antoine",
     "ai_name": "Kabrig",
     "city": "Brest",
     "sports": ["tous"],
-    "tiles": ["weather", "todo", "agenda", "sport", "sorties", "mail", "spotify", "whatsapp"],
+    "tiles": ["weather", "todo", "notes", "agenda", "sport", "sorties", "mail", "spotify", "whatsapp"],
     "spotify": "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
     "sizes": {},  # tuile -> s | m | l
     "custom": [],  # [{"id", "title", "query"}] tuiles créées par l'utilisateur

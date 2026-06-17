@@ -60,8 +60,11 @@ type NewsItem = { title: string; url: string; source: string };
 
 type Todo = { id: number; text: string; done: number };
 
+type Note = { id: number; title: string; content: string; folder: string };
+
 type Dashboard = {
   todos: Todo[];
+  notes: Note[];
   weather: { data?: WeatherData } | WeatherData | null;
   sport: NewsItem[];
   sorties: string;
@@ -89,6 +92,7 @@ type Tab = "accueil" | "chat" | "agenda" | "reglages";
 const TILE_LABELS: Record<string, string> = {
   weather: "🌤️ Météo",
   todo: "✅ Todo list",
+  notes: "🗒️ Notes",
   agenda: "📅 Agenda",
   sport: "🏉 Sport",
   sorties: "🎉 Idées de sortie",
@@ -445,6 +449,123 @@ function ChatView({
   );
 }
 
+/* ---------------- Tuile Notes ---------------- */
+
+function NotesTileContent() {
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [form, setForm] = useState({ title: "", folder: "" });
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [draft, setDraft] = useState("");
+
+  async function refresh() {
+    const res = await fetch(`${BACKEND}/api/notes`);
+    setNotes((await res.json()).notes);
+  }
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  async function add() {
+    if (!form.title.trim()) return;
+    await fetch(`${BACKEND}/api/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: form.title, folder: form.folder }),
+    });
+    setForm({ title: "", folder: form.folder });
+    refresh();
+  }
+
+  async function saveContent(n: Note) {
+    await fetch(`${BACKEND}/api/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: n.id, title: n.title, content: draft, folder: n.folder }),
+    });
+    setOpenId(null);
+    refresh();
+  }
+
+  async function remove(id: number) {
+    await fetch(`${BACKEND}/api/notes/${id}`, { method: "DELETE" });
+    setOpenId(null);
+    refresh();
+  }
+
+  // Regroupe par dossier ("" → "Sans dossier").
+  const groups: Record<string, Note[]> = {};
+  for (const n of notes) (groups[n.folder || "Sans dossier"] ??= []).push(n);
+  const folderNames = Object.keys(groups).sort();
+
+  return (
+    <>
+      <div className="notes-add">
+        <input
+          placeholder="Titre de la note…"
+          value={form.title}
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && add()}
+        />
+        <input
+          placeholder="Dossier (ex: Perso/Idées)"
+          value={form.folder}
+          onChange={(e) => setForm({ ...form, folder: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && add()}
+        />
+        <button onClick={add} disabled={!form.title.trim()}>
+          +
+        </button>
+      </div>
+
+      {notes.length === 0 && <p className="tile-empty">Aucune note. Crée-en une ou demande à Kabrig.</p>}
+
+      {folderNames.map((folder) => (
+        <div key={folder} className="note-folder">
+          <div className="note-folder-name">📁 {folder}</div>
+          {groups[folder].map((n) => (
+            <div key={n.id} className="note-item">
+              <div
+                className="note-head"
+                onClick={() => {
+                  if (openId === n.id) setOpenId(null);
+                  else {
+                    setOpenId(n.id);
+                    setDraft(n.content);
+                  }
+                }}
+              >
+                <span className="note-title">🗒️ {n.title}</span>
+                <button
+                  className="note-del"
+                  title="Supprimer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm(`Supprimer « ${n.title} » ?`)) remove(n.id);
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+              {openId === n.id && (
+                <div className="note-editor">
+                  <textarea
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="Contenu de la note…"
+                    rows={5}
+                  />
+                  <button onClick={() => saveContent(n)}>Enregistrer</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
+    </>
+  );
+}
+
 /* ---------------- Accueil ---------------- */
 
 // Tuile à hauteur automatique : mesure son contenu et occupe exactement
@@ -764,6 +885,13 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                     Nettoyer les tâches faites
                   </button>
                 )}
+              </Tile>
+            );
+          if (t === "notes")
+            return (
+              <Tile className={tileClass(t)} key={t} drag={dragProps(t)}>
+                <h3>🗒️ Notes <SizeBtn tile={t} /></h3>
+                <NotesTileContent />
               </Tile>
             );
           if (t === "agenda")

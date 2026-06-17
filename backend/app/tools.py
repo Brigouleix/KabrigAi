@@ -19,6 +19,14 @@ from .finance import (
     stock_data,
 )
 from .prefs import PREFS_TOOL_DEFINITION, update_preferences
+from .notes import (
+    NOTES_TOOL_DEFINITIONS,
+    create_note,
+    delete_note,
+    list_notes,
+    read_note,
+    update_note,
+)
 from .todos import (
     TODO_TOOL_DEFINITIONS,
     add_todo,
@@ -151,39 +159,6 @@ async def get_weather(city: str) -> tuple[str, dict]:
         ],
     }
     return "\n".join(lines), widget
-
-
-def create_note(title: str, content: str) -> str:
-    with _db() as conn:
-        conn.execute(
-            "INSERT INTO notes (title, content, created_at) VALUES (?, ?, ?)",
-            (title, content, datetime.now().isoformat(timespec="seconds")),
-        )
-    return f"Note « {title} » enregistrée."
-
-
-def list_notes() -> str:
-    with _db() as conn:
-        rows = conn.execute(
-            "SELECT id, title, created_at FROM notes ORDER BY id DESC"
-        ).fetchall()
-    if not rows:
-        return "Aucune note."
-    return "\n".join(f"[{r[0]}] {r[1]} ({r[2]})" for r in rows)
-
-
-def read_note(note_id: int) -> str:
-    with _db() as conn:
-        row = conn.execute(
-            "SELECT title, content FROM notes WHERE id = ?", (note_id,)
-        ).fetchone()
-    return f"# {row[0]}\n\n{row[1]}" if row else f"Note {note_id} introuvable."
-
-
-def delete_note(note_id: int) -> str:
-    with _db() as conn:
-        cur = conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
-    return "Note supprimée." if cur.rowcount else f"Note {note_id} introuvable."
 
 
 def list_documents(subfolder: str = "") -> str:
@@ -389,53 +364,6 @@ TOOL_DEFINITIONS = FINANCE_TOOL_DEFINITIONS + [CHART_TOOL_DEFINITION] + [
     {
         "type": "function",
         "function": {
-            "name": "create_note",
-            "description": "Enregistre une note persistante.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "title": {"type": "string"},
-                    "content": {"type": "string"},
-                },
-                "required": ["title", "content"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "list_notes",
-            "description": "Liste toutes les notes enregistrées.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "read_note",
-            "description": "Lit le contenu d'une note par son id.",
-            "parameters": {
-                "type": "object",
-                "properties": {"note_id": {"type": "integer"}},
-                "required": ["note_id"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "delete_note",
-            "description": "Supprime une note par son id.",
-            "parameters": {
-                "type": "object",
-                "properties": {"note_id": {"type": "integer"}},
-                "required": ["note_id"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "list_documents",
             "description": "Liste les fichiers du dossier Documents de l'utilisateur.",
             "parameters": {
@@ -458,7 +386,7 @@ TOOL_DEFINITIONS = FINANCE_TOOL_DEFINITIONS + [CHART_TOOL_DEFINITION] + [
             },
         },
     },
-] + RAG_TOOL_DEFINITIONS + [ROUTE_TOOL_DEFINITION, DOCUMENT_TOOL_DEFINITION, PREFS_TOOL_DEFINITION] + AGENDA_TOOL_DEFINITIONS + TODO_TOOL_DEFINITIONS
+] + RAG_TOOL_DEFINITIONS + [ROUTE_TOOL_DEFINITION, DOCUMENT_TOOL_DEFINITION, PREFS_TOOL_DEFINITION] + AGENDA_TOOL_DEFINITIONS + TODO_TOOL_DEFINITIONS + NOTES_TOOL_DEFINITIONS
 
 
 def _by_name(*names: str) -> list[dict]:
@@ -496,6 +424,10 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], list[dict]]] = [
     (
         ("mail", "e-mail", "email", "courriel", "envoie", "écris à", "ecris a"),
         _by_name("send_email"),
+    ),
+    (
+        ("note", "notes", "noter", "carnet", "memo", "mémo", "dossier"),
+        _by_name("create_note", "list_notes", "read_note", "update_note", "delete_note"),
     ),
     (
         ("read_webpage_kw", "page web", "lien", "url", "site ", "article"),
@@ -563,6 +495,7 @@ async def execute_tool(name: str, args: dict) -> tuple[str, dict | None]:
             "create_note": create_note,
             "list_notes": list_notes,
             "read_note": read_note,
+            "update_note": update_note,
             "delete_note": delete_note,
             "list_documents": list_documents,
             "read_document": read_document,
