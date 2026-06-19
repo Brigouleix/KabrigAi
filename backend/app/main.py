@@ -575,6 +575,41 @@ async def _fetch_sport_feed(client: httpx.AsyncClient, sport: str) -> list[dict]
     return items
 
 
+@app.get("/api/tile/mail")
+async def tile_mail():
+    return await asyncio.to_thread(_fetch_mailbox)
+
+
+@app.get("/api/tile/sport")
+async def tile_sport():
+    prefs = get_prefs()
+    sports = prefs["sports"] or ["tous"]
+    async with httpx.AsyncClient(timeout=10) as client:
+        feeds = await asyncio.gather(
+            *[_fetch_sport_feed(client, s) for s in sports], return_exceptions=True
+        )
+    merged = [it for f in feeds if isinstance(f, list) for it in f]
+    merged.sort(key=lambda x: x["ts"], reverse=True)
+    return {"sport": [{k: v for k, v in it.items() if k != "ts"} for it in merged[:10]]}
+
+
+@app.get("/api/tile/news")
+async def tile_news(q: str, n: int = 6):
+    from ddgs import DDGS
+
+    try:
+        res = await asyncio.to_thread(
+            lambda: DDGS().news(q, region="fr-fr", max_results=n)
+        )
+        items = [
+            {"title": r["title"], "url": r["url"], "source": r.get("source", "")}
+            for r in (res or [])
+        ]
+    except Exception:
+        items = []
+    return {"items": items}
+
+
 @app.get("/api/dashboard")
 async def dashboard(city: str = ""):
     """Agrège les tuiles de l'accueil : météo, sport, sorties, agenda."""

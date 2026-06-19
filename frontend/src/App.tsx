@@ -49,6 +49,7 @@ type AgendaEvent = {
 
 type Prefs = {
   city: string;
+  weather_cities?: string[];
   sports: string[];
   tiles: string[];
   spotify: string;
@@ -596,10 +597,186 @@ function NotesTileContent({ filter = "" }: { filter?: string }) {
   );
 }
 
-function WeatherManager({ weathers, onChange }: { weathers: WeatherData[]; onChange: () => void }) {
+// Petite barre ⟳ + recherche réutilisée par les tuiles d'actu.
+function TileBar({ onRefresh, onSearch, placeholder, busy }: {
+  onRefresh: () => void;
+  onSearch: (q: string) => void;
+  placeholder: string;
+  busy: boolean;
+}) {
+  const [q, setQ] = useState("");
+  return (
+    <div className="tile-bar">
+      <input
+        value={q}
+        placeholder={placeholder}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && onSearch(q.trim())}
+      />
+      <button className="tile-refresh" title="Rafraîchir" onClick={onRefresh} disabled={busy}>
+        {busy ? "…" : "⟳"}
+      </button>
+    </div>
+  );
+}
+
+function MailTile() {
+  const [mail, setMail] = useState<Dashboard["mail"] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [filter, setFilter] = useState("");
+
+  async function load() {
+    setBusy(true);
+    try {
+      const res = await fetch(`${BACKEND}/api/tile/mail`);
+      setMail(await res.json());
+    } catch {
+      setMail({ configured: false, messages: [] });
+    }
+    setBusy(false);
+  }
+  useEffect(() => {
+    load();
+  }, []);
+
+  const msgs = (mail?.messages ?? []).filter((m) =>
+    filter ? (m.from + " " + m.subject).toLowerCase().includes(filter.toLowerCase()) : true
+  );
+
+  return (
+    <>
+      <TileBar busy={busy} placeholder="Filtrer mes mails…" onRefresh={load} onSearch={setFilter} />
+      {!mail?.configured ? (
+        <p className="tile-empty">Non configurée — GMAIL_ADDRESS / GMAIL_APP_PASSWORD dans backend/.env</p>
+      ) : msgs.length ? (
+        <ul className="tile-list">
+          {msgs.map((m, i) => (
+            <li key={i}>
+              <span className="mail-from">{m.from}</span>
+              <span>{m.subject}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="tile-empty">{busy ? "Chargement…" : "Aucun mail."}</p>
+      )}
+      <ExternalLink className="tile-link" href="https://mail.google.com">Ouvrir Gmail →</ExternalLink>
+    </>
+  );
+}
+
+function SportTile({ sports, onToggleSport }: { sports: string[]; onToggleSport: (s: string) => void }) {
+  const [items, setItems] = useState<NewsItem[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  async function load() {
+    setBusy(true);
+    try {
+      const res = await fetch(`${BACKEND}/api/tile/sport`);
+      setItems((await res.json()).sport);
+    } catch {
+      setItems([]);
+    }
+    setBusy(false);
+  }
+  async function search(q: string) {
+    if (!q) return load();
+    setBusy(true);
+    try {
+      const res = await fetch(`${BACKEND}/api/tile/news?q=${encodeURIComponent(q + " sport")}`);
+      setItems((await res.json()).items);
+    } catch {
+      setItems([]);
+    }
+    setBusy(false);
+  }
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sports.join(",")]);
+
+  return (
+    <>
+      <TileBar busy={busy} placeholder="Rechercher une actu sport…" onRefresh={load} onSearch={search} />
+      <div className="sport-filters">
+        {ALL_SPORTS.map((s) => (
+          <button
+            key={s}
+            className={`chip small ${sports.includes(s) ? "active" : ""}`}
+            onClick={() => onToggleSport(s)}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      {items.length ? (
+        <ul className="tile-list">
+          {items.map((s, i) => (
+            <li key={i}>
+              <ExternalLink href={s.url}>{s.title}</ExternalLink>
+              {s.source && <span className="src">{s.source}</span>}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="tile-empty">{busy ? "Chargement…" : "Pas d'actu."}</p>
+      )}
+    </>
+  );
+}
+
+function CustomTile({ def }: { def: { id: string; title: string; query: string } }) {
+  const [items, setItems] = useState<NewsItem[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  async function load(q?: string) {
+    setBusy(true);
+    try {
+      const res = await fetch(`${BACKEND}/api/tile/news?q=${encodeURIComponent(q || def.query)}`);
+      setItems((await res.json()).items);
+    } catch {
+      setItems([]);
+    }
+    setBusy(false);
+  }
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [def.query]);
+
+  return (
+    <>
+      <TileBar busy={busy} placeholder="Rechercher…" onRefresh={() => load()} onSearch={(q) => load(q || def.query)} />
+      {items.length ? (
+        <ul className="tile-list">
+          {items.map((s, i) => (
+            <li key={i}>
+              <ExternalLink href={s.url}>{s.title}</ExternalLink>
+              {s.source && <span className="src">{s.source}</span>}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="tile-empty">{busy ? "Chargement…" : "Aucune actu."}</p>
+      )}
+    </>
+  );
+}
+
+function WeatherManager({
+  cityList,
+  weathers,
+  onChange,
+}: {
+  cityList: string[];
+  weathers: WeatherData[];
+  onChange: () => void;
+}) {
   const [city, setCity] = useState("");
   const [busy, setBusy] = useState(false);
-  const cities = weathers.map((w) => w.city);
+  // Source de vérité = la liste de prefs (pas les météos chargées : une ville
+  // qui n'a pas pu être géocodée resterait sinon perdue à chaque édition).
+  const cities = cityList;
 
   async function save(next: string[]) {
     setBusy(true);
@@ -636,17 +813,22 @@ function WeatherManager({ weathers, onChange }: { weathers: WeatherData[]; onCha
           Ajouter
         </button>
       </div>
-      {busy && <p className="tile-empty">Mise à jour…</p>}
-      <div className="wm-grid">
-        {weathers.map((w) => (
-          <div key={w.city} className="wm-item">
+      <div className="wm-chips">
+        {cities.map((c) => (
+          <span key={c} className="wm-chip">
+            {c}
             {cities.length > 1 && (
-              <button className="wm-remove" title="Retirer" onClick={() => save(cities.filter((c) => c !== w.city))}>
+              <button title="Retirer" onClick={() => save(cities.filter((x) => x !== c))}>
                 ✕
               </button>
             )}
-            <WeatherCard data={w} />
-          </div>
+          </span>
+        ))}
+      </div>
+      {busy && <p className="tile-empty">Mise à jour…</p>}
+      <div className="wm-grid">
+        {weathers.map((w) => (
+          <WeatherCard key={w.city} data={w} />
         ))}
       </div>
     </div>
@@ -660,11 +842,13 @@ function WeatherManager({ weathers, onChange }: { weathers: WeatherData[]; onCha
 function Tile({
   className,
   drag,
+  grip,
   children,
   id,
 }: {
   className: string;
   drag: React.HTMLAttributes<HTMLElement>;
+  grip?: React.HTMLAttributes<HTMLElement>;
   children: React.ReactNode;
   id?: string;
 }) {
@@ -690,6 +874,11 @@ function Tile({
 
   return (
     <section ref={secRef} id={id} className={className} {...drag}>
+      {grip && (
+        <button className="drag-handle" title="Glisser pour réorganiser" {...grip}>
+          ⠿
+        </button>
+      )}
       <div ref={innerRef}>{children}</div>
     </section>
   );
@@ -840,12 +1029,13 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
       next = base.includes(sport) ? base.filter((s) => s !== sport) : [...base, sport];
       if (next.length === 0) next = ["tous"];
     }
-    await fetch(`${BACKEND}/api/prefs`, {
+    // Maj locale immédiate (SportTile se recharge via sa prop sports), puis persistance.
+    setData((d) => (d ? { ...d, prefs: { ...d.prefs, sports: next } } : d));
+    fetch(`${BACKEND}/api/prefs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sports: next }),
-    });
-    load();
+    }).catch(() => {});
   }
 
   const [spotify, setSpotify] = useState<SpotifyStatus | null>(null);
@@ -913,17 +1103,12 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
     );
   }
 
-  // NB : ne PAS réordonner le DOM pendant le drag — Chrome/WebView2 annule le
-  // drag si l'élément source bouge. On marque la cible, on insère au drop.
-  function dragProps(tile: string) {
+  // Drag via une poignée dédiée (⠿) : bien plus fiable en WebView2 que de
+  // rendre toute la tuile draggable (conflits avec inputs/boutons internes).
+  function handleProps(tile: string) {
     return {
       draggable: true,
       onDragStart: (e: React.DragEvent) => {
-        const el = e.target as HTMLElement;
-        if (el.closest("input, button, a, iframe, .route-map")) {
-          e.preventDefault();
-          return;
-        }
         e.dataTransfer.setData("text/plain", tile);
         e.dataTransfer.effectAllowed = "move";
         setDragKey(tile);
@@ -932,7 +1117,13 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
         setDragKey(null);
         setOverKey(null);
       },
+    };
+  }
+
+  function dropProps(tile: string) {
+    return {
       onDragOver: (e: React.DragEvent) => {
+        if (!dragKey) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
         setOverKey(tile);
@@ -1043,7 +1234,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
         {tiles.map((t) => {
           if (t === "weather")
             return (
-              <Tile className={tileClass(t)} key={t} drag={dragProps(t)} id={`tile-${t}`}>
+              <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>🌤️ Météo <ExpandBtn tile={t} /> <SizeBtn tile={t} /></h3>
                 {weathers.length ? (
                   weathers.map((w) => <WeatherCard key={w.city} data={w} />)
@@ -1054,7 +1245,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             );
           if (t === "todo")
             return (
-              <Tile className={tileClass(t)} key={t} drag={dragProps(t)} id={`tile-${t}`}>
+              <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>✅ Todo list <SizeBtn tile={t} /></h3>
                 <div className="todo-add">
                   <input
@@ -1125,14 +1316,14 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             );
           if (t === "notes")
             return (
-              <Tile className={tileClass(t)} key={t} drag={dragProps(t)} id={`tile-${t}`}>
+              <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>🗒️ Notes <ExpandBtn tile={t} /> <SizeBtn tile={t} /></h3>
                 <NotesTileContent filter={notesFilter} />
               </Tile>
             );
           if (t === "agenda")
             return (
-              <Tile className={tileClass(t)} key={t} drag={dragProps(t)} id={`tile-${t}`}>
+              <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>📅 Agenda <ExpandBtn tile={t} /> <SizeBtn tile={t} /></h3>
                 {data?.events?.length ? (
                   <ul className="tile-list">
@@ -1152,67 +1343,22 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             );
           if (t === "sport")
             return (
-              <Tile className={tileClass(t)} key={t} drag={dragProps(t)} id={`tile-${t}`}>
+              <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>🏉 Sport <ExpandBtn tile={t} /> <SizeBtn tile={t} /></h3>
-                <div className="sport-filters">
-                  {ALL_SPORTS.map((s) => (
-                    <button
-                      key={s}
-                      className={`chip small ${data?.prefs?.sports?.includes(s) ? "active" : ""}`}
-                      onClick={() => toggleSport(s)}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-                {data?.sport?.length ? (
-                  <ul className="tile-list">
-                    {data.sport.map((s, i) => (
-                      <li key={i}>
-                        <ExternalLink href={s.url}>{s.title}</ExternalLink>
-                        {s.source && <span className="src">{s.source}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="tile-empty">{loading ? "Chargement…" : "Pas d'actu sport."}</p>
-                )}
+                <SportTile sports={data?.prefs?.sports ?? ["tous"]} onToggleSport={toggleSport} />
               </Tile>
             );
           if (t === "mail")
             return (
-              <Tile className={tileClass(t)} key={t} drag={dragProps(t)} id={`tile-${t}`}>
-                <h3>
-                  📬 Boîte mail
-                  {data?.mail?.configured && <span className="badge">{data.mail.unread} non lus</span>}
-                  <SizeBtn tile={t} />
-                </h3>
-                {!data?.mail?.configured ? (
-                  <p className="tile-empty">
-                    Non configurée — ajoute GMAIL_ADDRESS et GMAIL_APP_PASSWORD dans backend/.env
-                    (le même que pour l'envoi de mails).
-                  </p>
-                ) : data.mail.messages.length ? (
-                  <ul className="tile-list">
-                    {data.mail.messages.map((m, i) => (
-                      <li key={i}>
-                        <span className="mail-from">{m.from}</span>
-                        <span>{m.subject}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="tile-empty">Aucun mail non lu 🎉</p>
-                )}
-                <ExternalLink className="tile-link" href="https://mail.google.com">
-                  Ouvrir Gmail →
-                </ExternalLink>
+              <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
+                <h3>📬 Boîte mail <ExpandBtn tile={t} /> <SizeBtn tile={t} /></h3>
+                <MailTile />
               </Tile>
             );
           if (t === "spotify") {
             const embed = data ? spotifyEmbedUrl(data.prefs.spotify) : null;
             return (
-              <Tile className={tileClass(t)} key={t} drag={dragProps(t)} id={`tile-${t}`}>
+              <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>🎵 Spotify <SizeBtn tile={t} /></h3>
                 {spotify?.configured && !spotify.connected && (
                   <button className="wa-btn spotify-connect" onClick={connectSpotify}>
@@ -1284,7 +1430,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
           }
           if (t === "whatsapp")
             return (
-              <Tile className={tileClass(t)} key={t} drag={dragProps(t)} id={`tile-${t}`}>
+              <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>💬 WhatsApp <SizeBtn tile={t} /></h3>
                 <p className="tile-empty">
                   WhatsApp n'a pas d'API publique — mais ton WhatsApp Web s'ouvre en un clic.
@@ -1296,7 +1442,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             );
           if (t === "sorties")
             return (
-              <Tile className={tileClass(t)} key={t} drag={dragProps(t)} id={`tile-${t}`}>
+              <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>🎉 Idées de sortie <SizeBtn tile={t} /></h3>
                 {data?.sorties ? (
                   <div className="tile-md">
@@ -1310,11 +1456,11 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
           if (t.startsWith("custom:")) {
             const id = t.slice(7);
             const def = data?.prefs?.custom?.find((c) => c.id === id);
-            const items = data?.custom?.[id] ?? [];
+            if (!def) return null;
             return (
-              <Tile className={tileClass(t)} key={t} drag={dragProps(t)} id={`tile-${t}`}>
+              <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>
-                  📌 {def?.title ?? id} <SizeBtn tile={t} />
+                  📌 {def.title} <SizeBtn tile={t} />
                   <button
                     className="size-btn del-tile"
                     title="Supprimer la tuile"
@@ -1330,18 +1476,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                     ✕
                   </button>
                 </h3>
-                {items.length ? (
-                  <ul className="tile-list">
-                    {items.map((s, i) => (
-                      <li key={i}>
-                        <ExternalLink href={s.url}>{s.title}</ExternalLink>
-                        {s.source && <span className="src">{s.source}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="tile-empty">{loading ? "Chargement…" : "Aucune actu trouvée."}</p>
-                )}
+                <CustomTile def={def} />
               </Tile>
             );
           }
@@ -1362,31 +1497,17 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
               <button className="lightbox-x" onClick={() => setExpanded(null)}>✕</button>
             </div>
             <div className="tile-modal-body">
-              {expanded === "weather" && <WeatherManager weathers={weathers} onChange={() => load()} />}
+              {expanded === "weather" && (
+                <WeatherManager
+                  cityList={data?.prefs?.weather_cities ?? weathers.map((w) => w.city)}
+                  weathers={weathers}
+                  onChange={() => load()}
+                />
+              )}
               {expanded === "notes" && <NotesTileContent />}
               {expanded === "agenda" && <AgendaView />}
               {expanded === "sport" && (
-                <>
-                  <div className="sport-filters">
-                    {ALL_SPORTS.map((sp) => (
-                      <button
-                        key={sp}
-                        className={`chip small ${data?.prefs?.sports?.includes(sp) ? "active" : ""}`}
-                        onClick={() => toggleSport(sp)}
-                      >
-                        {sp}
-                      </button>
-                    ))}
-                  </div>
-                  <ul className="tile-list">
-                    {(data?.sport ?? []).map((s, i) => (
-                      <li key={i}>
-                        <ExternalLink href={s.url}>{s.title}</ExternalLink>
-                        {s.source && <span className="src">{s.source}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                </>
+                <SportTile sports={data?.prefs?.sports ?? ["tous"]} onToggleSport={toggleSport} />
               )}
             </div>
           </div>
