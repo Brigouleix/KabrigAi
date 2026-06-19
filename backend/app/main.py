@@ -434,6 +434,7 @@ class PrefsIn(BaseModel):
     reset_tiles: bool = False
     user_name: str | None = None
     ai_name: str | None = None
+    weather_cities: list[str] | None = None
 
 
 @app.get("/api/prefs")
@@ -447,7 +448,7 @@ async def prefs_set(p: PrefsIn):
         p.city, p.sports, p.tiles, p.spotify,
         sizes=p.sizes, add_tile=p.add_tile, remove_tile=p.remove_tile,
         show_tile=p.show_tile, hide_tile=p.hide_tile, reset_tiles=p.reset_tiles,
-        user_name=p.user_name, ai_name=p.ai_name,
+        user_name=p.user_name, ai_name=p.ai_name, weather_cities=p.weather_cities,
     )
 
 
@@ -578,11 +579,20 @@ async def _fetch_sport_feed(client: httpx.AsyncClient, sport: str) -> list[dict]
 async def dashboard(city: str = ""):
     """Agrège les tuiles de l'accueil : météo, sport, sorties, agenda."""
     prefs = get_prefs()
-    city = city or prefs["city"]
+    cities = prefs.get("weather_cities") or [prefs.get("city", "Brest")]
+    if city:  # une ville passée en query override la 1re
+        cities = [city] + [c for c in cities if c.lower() != city.lower()]
+    city = cities[0]
 
     async def weather():
-        _, widget = await get_weather(city)
-        return widget
+        results = await asyncio.gather(
+            *[get_weather(c) for c in cities], return_exceptions=True
+        )
+        widgets = []
+        for r in results:
+            if isinstance(r, tuple) and r[1]:
+                widgets.append(r[1])
+        return widgets
 
     async def sport():
         sports = prefs["sports"] or ["tous"]
@@ -625,14 +635,15 @@ async def dashboard(city: str = ""):
             return fallback
 
     weather_data, sport_data, sorties_data, mail_data, custom_data = await asyncio.gather(
-        safe(weather(), {}),
+        safe(weather(), []),
         safe(sport(), []),
         safe(sorties(), ""),
         safe(asyncio.to_thread(_fetch_mailbox), {"configured": False, "messages": []}),
         safe(custom_tiles(), {}),
     )
     return {
-        "weather": weather_data,
+        "weathers": weather_data,
+        "weather": (weather_data[0] if weather_data else {}),
         "sport": sport_data,
         "sorties": sorties_data,
         "mail": mail_data,

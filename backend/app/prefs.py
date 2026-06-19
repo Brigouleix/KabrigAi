@@ -15,6 +15,7 @@ DEFAULTS = {
     "user_name": "Antoine",
     "ai_name": "Kabrig",
     "city": "Brest",
+    "weather_cities": ["Brest"],  # météo multi-villes
     "sports": ["tous"],
     "tiles": ["weather", "todo", "notes", "agenda", "sport", "sorties", "mail", "spotify", "whatsapp"],
     "spotify": "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
@@ -63,10 +64,14 @@ def set_prefs(
     reset_tiles: bool = False,
     user_name: str | None = None,
     ai_name: str | None = None,
+    weather_cities: list[str] | None = None,
 ) -> dict:
     prefs = get_prefs()
     if city:
         prefs["city"] = city.strip()
+    if weather_cities is not None:
+        cleaned = [c.strip() for c in weather_cities if c.strip()]
+        prefs["weather_cities"] = cleaned[:6] or [prefs.get("city", "Brest")]
     if user_name:
         prefs["user_name"] = user_name.strip()
     if ai_name:

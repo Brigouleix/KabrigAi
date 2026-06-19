@@ -1307,6 +1307,124 @@ li.done .todo-check {
   text-decoration: underline;
 }
 
+/* ---------- Surbrillance tuile (depuis la recherche) ---------- */
+.tiles .tile.highlight {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(238, 154, 79, 0.28), var(--shadow-md);
+  animation: tile-pulse 1.3s var(--ease) 2;
+}
+
+@keyframes tile-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(238, 154, 79, 0.28), var(--shadow-md);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(238, 154, 79, 0.12), var(--shadow-lg);
+  }
+}
+
+.expand-btn {
+  font-size: 13px;
+}
+
+/* ---------- Modale tuile agrandie ---------- */
+.tile-modal {
+  width: min(720px, 92vw);
+}
+
+.tile-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.tile-modal-head h3 {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.lightbox-x {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.tile-modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.wm-add {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.wm-add input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-soft);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+
+.wm-add button {
+  border: none;
+  background: var(--grad-accent);
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.wm-item {
+  position: relative;
+}
+
+.wm-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  border: none;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.notes-search {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-soft);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  margin-bottom: 8px;
+}
+
+.notes-search:focus {
+  border-color: var(--accent);
+}
+
 /* ---------- Notes ---------- */
 .notes-add {
   display: flex;
