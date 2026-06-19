@@ -104,6 +104,18 @@ const TILE_LABELS: Record<string, string> = {
 
 /* ---------------- Sphère IA + réflexion ---------------- */
 
+function Logo() {
+  const [err, setErr] = useState(false);
+  if (err)
+    return (
+      <>
+        <span className="logo-dot" />
+        <span className="logo-name">Kabrig</span>
+      </>
+    );
+  return <img src="/kabrig-logo.png" alt="Kabrig" className="logo-img" onError={() => setErr(true)} />;
+}
+
 function Sphere({ size = 30 }: { size?: number }) {
   return (
     <span className="ai-sphere" style={{ width: size, height: size }} aria-hidden>
@@ -1625,8 +1637,8 @@ function App() {
   }
 
 
-  const [theme, setTheme] = useState<"light" | "dark">(
-    () => (localStorage.getItem("kabrig-theme") as "light" | "dark") || "light"
+  const [theme, setTheme] = useState<"light" | "dark" | "blue">(
+    () => (localStorage.getItem("kabrig-theme") as "light" | "dark" | "blue") || "light"
   );
 
   useEffect(() => {
@@ -1650,8 +1662,7 @@ function App() {
     <div className="app">
       <header>
         <h1>
-          <span className="logo-dot" />
-          <span className="logo-name">Kabrig</span>
+          <Logo />
         </h1>
         <nav>
           {(["accueil", "chat", "agenda", "reglages"] as Tab[]).map((t) => (
@@ -1663,10 +1674,12 @@ function App() {
         <div className="header-right">
           <button
             className="theme-toggle"
-            onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
-            title={theme === "light" ? "Mode sombre" : "Mode clair"}
+            onClick={() =>
+              setTheme((t) => (t === "light" ? "dark" : t === "dark" ? "blue" : "light"))
+            }
+            title="Changer de thème (clair / sombre / bleu)"
           >
-            {theme === "light" ? "🌙" : "☀️"}
+            {theme === "light" ? "☀️" : theme === "dark" ? "🌙" : "🦁"}
           </button>
           <span className={`status ${health?.ollama ? "ok" : "ko"}`}>
             {health === null ? "…" : health.ollama ? "En ligne" : "Hors ligne"}
