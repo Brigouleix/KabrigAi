@@ -606,10 +606,65 @@ function Tile({
   );
 }
 
+type SearchResult = {
+  q: string;
+  content: string;
+  tools: string[];
+  weather?: WeatherData;
+  route?: RouteData;
+  chart?: ChartData;
+};
+
 function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
   const [data, setData] = useState<Dashboard | null>(null);
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [searchBusy, setSearchBusy] = useState(false);
+  const [result, setResult] = useState<SearchResult | null>(null);
+
+  async function runSearch() {
+    const q = query.trim();
+    if (!q || searchBusy) return;
+    setQuery("");
+    setSearchBusy(true);
+    setResult({ q, content: "", tools: [] });
+    try {
+      const res = await fetch(`${BACKEND}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [{ role: "user", content: q }] }),
+      });
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const evt = JSON.parse(line);
+          setResult((r) => {
+            if (!r) return r;
+            const next = { ...r };
+            if (evt.type === "token") next.content += evt.content;
+            if (evt.type === "tool") next.tools = [...next.tools, evt.name];
+            if (evt.type === "widget" && evt.widget === "weather") next.weather = evt.data;
+            if (evt.type === "widget" && evt.widget === "route") next.route = evt.data;
+            if (evt.type === "widget" && evt.widget === "chart") next.chart = evt.data;
+            return next;
+          });
+        }
+      }
+    } catch {
+      setResult((r) => (r ? { ...r, content: r.content || "⚠️ Recherche impossible." } : r));
+    } finally {
+      setSearchBusy(false);
+    }
+  }
 
   async function load(c = "") {
     setLoading(true);
@@ -795,6 +850,20 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
         </div>
       </div>
 
+      <div className="dash-search">
+        <span className="dash-search-icon">🔍</span>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && runSearch()}
+          placeholder="Rechercher sur internet, poser une question…"
+          disabled={searchBusy}
+        />
+        <button onClick={runSearch} disabled={searchBusy || !query.trim()}>
+          {searchBusy ? "…" : "Rechercher"}
+        </button>
+      </div>
+
       <div className="quick-actions">
         {["Quoi de neuf aujourd'hui ?", "Rédige un mail", "Crée un PDF", "Itinéraire"].map((q) => (
           <button key={q} className="chip" onClick={() => goChat(q === "Itinéraire" ? "Itinéraire de " : q)}>
@@ -802,6 +871,30 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
           </button>
         ))}
       </div>
+
+      {result && (
+        <div className="dash-result">
+          <div className="dash-result-head">
+            <span className="dash-result-q">🔍 {result.q}</span>
+            <button className="dash-result-close" onClick={() => setResult(null)} title="Fermer">
+              ✕
+            </button>
+          </div>
+          {result.weather && <WeatherCard data={result.weather} />}
+          {result.route && <RouteCard data={result.route} />}
+          {result.chart && <ChartCard data={result.chart} />}
+          {result.content ? (
+            <Markdown components={{ a: ExternalLink }}>{result.content}</Markdown>
+          ) : (
+            <Thinking tools={result.tools} />
+          )}
+          {result.content && (
+            <button className="dash-result-continue" onClick={() => goChat(result.q)}>
+              Continuer dans le chat →
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="tiles">
         {tiles.map((t) => {
