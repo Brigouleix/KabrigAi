@@ -2006,6 +2006,16 @@ function SettingsView() {
 
 /* ---------------- App ---------------- */
 
+function Splash() {
+  return (
+    <div className="app-splash">
+      <img src="/kabrig-logo.png" alt="Kabrig" />
+      <div className="splash-bar" />
+      <div className="splash-txt">Chargement de Kabrig…</div>
+    </div>
+  );
+}
+
 function App() {
   const [tab, setTab] = useState<Tab>("accueil");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -2014,6 +2024,17 @@ function App() {
   const [health, setHealth] = useState<{ ollama: boolean; models: string[] } | null>(null);
   const [chats, setChats] = useState<ChatMeta[]>([]);
   const [chatId, setChatId] = useState<number | null>(null);
+  const [ready, setReady] = useState(false);
+
+  // Écran de chargement à chaque ouverture / F5, jusqu'à ce que le backend
+  // réponde (ou ~3 s max pour ne jamais rester bloqué).
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 3000);
+    fetch(`${BACKEND}/api/health`)
+      .then(() => setTimeout(() => setReady(true), 400))
+      .catch(() => setReady(true));
+    return () => clearTimeout(t);
+  }, []);
 
   async function refreshChats() {
     const res = await fetch(`${BACKEND}/api/chats`);
@@ -2077,6 +2098,8 @@ function App() {
     setPendingPrompt(prompt);
     setTab("chat");
   }
+
+  if (!ready) return <Splash />;
 
   return (
     <div className="app">
