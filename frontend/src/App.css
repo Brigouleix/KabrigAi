@@ -1506,8 +1506,13 @@ li.done .todo-check {
   margin-bottom: 14px;
 }
 
-.wm-add input {
+.wm-search {
+  position: relative;
   flex: 1;
+}
+
+.wm-add input {
+  width: 100%;
   padding: 10px 14px;
   border-radius: 10px;
   border: 1px solid var(--border);
@@ -1515,6 +1520,41 @@ li.done .todo-check {
   color: var(--text);
   font-size: 14px;
   outline: none;
+}
+
+.wm-add input:focus {
+  border-color: var(--accent);
+}
+
+.wm-suggest {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.wm-suggest li {
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wm-suggest li:hover {
+  background: var(--accent-soft);
 }
 
 .wm-add button {

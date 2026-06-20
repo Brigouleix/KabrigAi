@@ -575,6 +575,27 @@ async def _fetch_sport_feed(client: httpx.AsyncClient, sport: str) -> list[dict]
     return items
 
 
+@app.get("/api/geocode")
+async def geocode(q: str):
+    """Autocomplétion de villes (Open-Meteo geocoding)."""
+    if len(q.strip()) < 2:
+        return {"results": []}
+    async with httpx.AsyncClient(timeout=8) as client:
+        r = await client.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={"name": q.strip(), "count": 6, "language": "fr"},
+        )
+    out = []
+    for c in r.json().get("results", []):
+        parts = [c["name"]]
+        if c.get("admin1") and c["admin1"] != c["name"]:
+            parts.append(c["admin1"])
+        if c.get("country"):
+            parts.append(c["country"])
+        out.append({"name": c["name"], "label": ", ".join(parts)})
+    return {"results": out}
+
+
 @app.get("/api/tile/mail")
 async def tile_mail():
     return await asyncio.to_thread(_fetch_mailbox)

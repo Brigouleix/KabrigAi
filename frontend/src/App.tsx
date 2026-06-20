@@ -791,9 +791,30 @@ function WeatherManager({
 }) {
   const [city, setCity] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sugg, setSugg] = useState<{ name: string; label: string }[]>([]);
+  const [openSugg, setOpenSugg] = useState(false);
   // Source de vérité = la liste de prefs (pas les météos chargées : une ville
   // qui n'a pas pu être géocodée resterait sinon perdue à chaque édition).
   const cities = cityList;
+
+  // Recherche prédictive (débouncée) sur le géocodage.
+  useEffect(() => {
+    const q = city.trim();
+    if (q.length < 2) {
+      setSugg([]);
+      return;
+    }
+    const id = setTimeout(async () => {
+      try {
+        const res = await fetch(`${BACKEND}/api/geocode?q=${encodeURIComponent(q)}`);
+        setSugg((await res.json()).results);
+        setOpenSugg(true);
+      } catch {
+        setSugg([]);
+      }
+    }, 250);
+    return () => clearTimeout(id);
+  }, [city]);
 
   async function save(next: string[]) {
     setBusy(true);
@@ -806,27 +827,45 @@ function WeatherManager({
     setBusy(false);
   }
 
+  function add(name: string) {
+    const n = name.trim();
+    if (!n || cities.some((c) => c.toLowerCase() === n.toLowerCase())) {
+      setCity("");
+      setOpenSugg(false);
+      return;
+    }
+    save([...cities, n]);
+    setCity("");
+    setSugg([]);
+    setOpenSugg(false);
+  }
+
   return (
     <div>
       <div className="wm-add">
-        <input
-          placeholder="Ajouter une ville…"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && city.trim()) {
-              save([...cities, city.trim()]);
-              setCity("");
-            }
-          }}
-        />
-        <button
-          disabled={!city.trim() || busy}
-          onClick={() => {
-            save([...cities, city.trim()]);
-            setCity("");
-          }}
-        >
+        <div className="wm-search">
+          <input
+            placeholder="Rechercher une ville…"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            onFocus={() => sugg.length && setOpenSugg(true)}
+            onBlur={() => setTimeout(() => setOpenSugg(false), 150)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") add(sugg[0]?.name ?? city);
+              if (e.key === "Escape") setOpenSugg(false);
+            }}
+          />
+          {openSugg && sugg.length > 0 && (
+            <ul className="wm-suggest">
+              {sugg.map((s) => (
+                <li key={s.label} onMouseDown={() => add(s.name)}>
+                  <span aria-hidden>📍</span> {s.label}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <button disabled={!city.trim() || busy} onClick={() => add(sugg[0]?.name ?? city)}>
           Ajouter
         </button>
       </div>
