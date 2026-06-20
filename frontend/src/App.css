@@ -1615,6 +1615,57 @@ li.done .todo-check {
   border-color: var(--accent);
 }
 
+/* ---------- Itinéraire ---------- */
+.route-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.route-form-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.route-modes {
+  display: flex;
+  gap: 4px;
+}
+
+.route-mode {
+  border: 1px solid var(--border);
+  background: var(--card-soft);
+  border-radius: 10px;
+  width: 38px;
+  height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.route-mode.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.route-go {
+  border: none;
+  background: var(--grad-accent);
+  color: #fff;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.route-go:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* ---------- Notes ---------- */
 .notes-add {
   display: flex;

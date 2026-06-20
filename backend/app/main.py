@@ -596,6 +596,16 @@ async def geocode(q: str):
     return {"results": out}
 
 
+@app.get("/api/route")
+async def route(origin: str, destination: str, mode: str = "voiture"):
+    from .routing import get_route
+
+    text, widget = await get_route(origin, destination, mode)
+    if widget:
+        return {"ok": True, "data": widget["data"], "text": text}
+    return {"ok": False, "text": text}
+
+
 @app.get("/api/tile/mail")
 async def tile_mail():
     return await asyncio.to_thread(_fetch_mailbox)

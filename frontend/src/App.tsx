@@ -95,6 +95,7 @@ const TILE_LABELS: Record<string, string> = {
   weather: "🌤️ Météo",
   todo: "✅ Todo list",
   notes: "🗒️ Notes",
+  route: "🗺️ Itinéraire",
   agenda: "📅 Agenda",
   sport: "🏉 Sport",
   sorties: "🎉 Idées de sortie",
@@ -845,6 +846,69 @@ function CityInput({
   );
 }
 
+function RouteTile() {
+  const [origin, setOrigin] = useState("");
+  const [dest, setDest] = useState("");
+  const [mode, setMode] = useState("voiture");
+  const [busy, setBusy] = useState(false);
+  const [route, setRoute] = useState<RouteData | null>(null);
+  const [err, setErr] = useState("");
+
+  async function calc() {
+    if (!origin.trim() || !dest.trim() || busy) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await fetch(
+        `${BACKEND}/api/route?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&mode=${mode}`
+      );
+      const json = await res.json();
+      if (json.ok) setRoute(json.data);
+      else {
+        setRoute(null);
+        setErr(json.text || "Itinéraire introuvable.");
+      }
+    } catch {
+      setErr("Erreur réseau.");
+    }
+    setBusy(false);
+  }
+
+  const modes: [string, string][] = [
+    ["voiture", "🚗"],
+    ["velo", "🚴"],
+    ["pieton", "🚶"],
+  ];
+
+  return (
+    <>
+      <div className="route-form">
+        <CityInput value={origin} onChange={setOrigin} onSelect={setOrigin} placeholder="Départ…" />
+        <CityInput value={dest} onChange={setDest} onSelect={setDest} placeholder="Arrivée…" />
+        <div className="route-form-bottom">
+          <div className="route-modes">
+            {modes.map(([m, icon]) => (
+              <button
+                key={m}
+                className={`route-mode ${mode === m ? "active" : ""}`}
+                onClick={() => setMode(m)}
+                title={m}
+              >
+                {icon}
+              </button>
+            ))}
+          </div>
+          <button className="route-go" onClick={calc} disabled={busy || !origin.trim() || !dest.trim()}>
+            {busy ? "…" : "Calculer"}
+          </button>
+        </div>
+      </div>
+      {err && <p className="tile-empty">{err}</p>}
+      {route && <RouteCard data={route} />}
+    </>
+  );
+}
+
 function WeatherManager({
   cityList,
   weathers,
@@ -1410,6 +1474,13 @@ function HomeView({ goChat, active }: { goChat: (prompt: string) => void; active
               <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>🗒️ Notes <ExpandBtn tile={t} /> <SizeBtn tile={t} /></h3>
                 <NotesTileContent filter={notesFilter} />
+              </Tile>
+            );
+          if (t === "route")
+            return (
+              <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
+                <h3>🗺️ Itinéraire <SizeBtn tile={t} /></h3>
+                <RouteTile />
               </Tile>
             );
           if (t === "agenda")
