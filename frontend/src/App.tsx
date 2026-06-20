@@ -852,6 +852,33 @@ function CityInput({
   );
 }
 
+function WeatherCarousel({ weathers }: { weathers: WeatherData[] }) {
+  const [i, setI] = useState(0);
+  if (!weathers.length) return null;
+  const idx = ((i % weathers.length) + weathers.length) % weathers.length;
+  return (
+    <div className="weather-carousel">
+      <WeatherCard data={weathers[idx]} />
+      {weathers.length > 1 && (
+        <div className="wc-nav">
+          <button onClick={() => setI(i - 1)} aria-label="Précédent">‹</button>
+          <div className="wc-dots">
+            {weathers.map((w, k) => (
+              <span
+                key={w.city}
+                className={k === idx ? "on" : ""}
+                onClick={() => setI(k)}
+                title={w.city}
+              />
+            ))}
+          </div>
+          <button onClick={() => setI(i + 1)} aria-label="Suivant">›</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RouteTile() {
   const [origin, setOrigin] = useState("");
   const [dest, setDest] = useState("");
@@ -1416,7 +1443,7 @@ function HomeView({ goChat, active }: { goChat: (prompt: string) => void; active
               <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>🌤️ Météo <ExpandBtn tile={t} /> <SizeBtn tile={t} /></h3>
                 {weathers.length ? (
-                  weathers.map((w) => <WeatherCard key={w.city} data={w} />)
+                  <WeatherCarousel weathers={weathers} />
                 ) : (
                   <p className="tile-empty">{loading ? "Chargement…" : "Indisponible"}</p>
                 )}

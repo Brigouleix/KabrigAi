@@ -906,6 +906,60 @@ footer button:disabled {
   transform: translateY(-2px);
 }
 
+/* La tuile dont un champ est actif passe au-dessus des voisines, sinon le
+   menu d'autocomplétion (positionné en absolu) est masqué par la tuile suivante. */
+.tiles .tile:focus-within {
+  z-index: 50;
+}
+
+/* ---------- Carrousel météo ---------- */
+.weather-carousel {
+  display: flex;
+  flex-direction: column;
+}
+
+.wc-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.wc-nav button {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.wc-nav button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.wc-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.wc-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  cursor: pointer;
+}
+
+.wc-dots span.on {
+  background: var(--accent);
+}
+
 .tiles .tile.size-s {
   overflow-y: auto; /* taille S = hauteur plafonnée, contenu scrollable */
 }
