@@ -1,13 +1,66 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="/kabrig-juste-logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + TS</title>
+    <title>Kabrig AI</title>
+    <style>
+      #splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        background: #f4f6fc;
+        z-index: 9999;
+      }
+      #splash img {
+        width: 220px;
+        max-width: 60vw;
+        animation: splash-pulse 1.8s ease-in-out infinite;
+      }
+      #splash .bar {
+        width: 160px;
+        height: 4px;
+        border-radius: 999px;
+        background: rgba(46, 59, 181, 0.15);
+        overflow: hidden;
+      }
+      #splash .bar::after {
+        content: "";
+        display: block;
+        height: 100%;
+        width: 40%;
+        border-radius: 999px;
+        background: #2e3bb5;
+        animation: splash-load 1.2s ease-in-out infinite;
+      }
+      #splash .txt {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        font-size: 13px;
+        color: #8087b0;
+      }
+      @keyframes splash-pulse {
+        0%, 100% { opacity: 0.85; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.04); }
+      }
+      @keyframes splash-load {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(400%); }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="splash">
+        <img src="/kabrig-logo.png" alt="Kabrig" />
+        <div class="bar"></div>
+        <div class="txt">Démarrage de Kabrig…</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
