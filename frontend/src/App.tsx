@@ -107,14 +107,14 @@ const TILE_LABELS: Record<string, string> = {
 
 function Logo() {
   const [err, setErr] = useState(false);
-  if (err)
-    return (
-      <>
-        <span className="logo-dot" />
-        <span className="logo-name">Kabrig</span>
-      </>
-    );
-  return <img src="/kabrig-logo.png" alt="Kabrig" className="logo-img" onError={() => setErr(true)} />;
+  if (err) return <span className="logo-dot" />;
+  return <img src="/kabrig-juste-logo.png" alt="Kabrig" className="logo-img" onError={() => setErr(true)} />;
+}
+
+function TitleMark() {
+  const [err, setErr] = useState(false);
+  if (err) return <span className="logo-name">Kabrig</span>;
+  return <img src="/kabrig-juste-titre.png" alt="kabrig" className="title-img" onError={() => setErr(true)} />;
 }
 
 function Sphere({ size = 30 }: { size?: number }) {
@@ -1793,6 +1793,7 @@ function App() {
           ))}
         </nav>
         <div className="header-right">
+          <TitleMark />
           <button
             className="theme-toggle"
             onClick={() =>

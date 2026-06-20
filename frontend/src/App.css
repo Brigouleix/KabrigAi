@@ -121,9 +121,16 @@ header h1 {
 }
 
 .logo-img {
-  height: 44px;
+  height: 56px;
   width: auto;
   display: block;
+}
+
+.title-img {
+  height: 26px;
+  width: auto;
+  display: block;
+  margin-right: 4px;
 }
 
 .logo-dot {
