@@ -909,7 +909,12 @@ footer button:disabled {
 /* La tuile dont un champ est actif passe au-dessus des voisines, sinon le
    menu d'autocomplétion (positionné en absolu) est masqué par la tuile suivante. */
 .tiles .tile:focus-within {
-  z-index: 50;
+  z-index: 200;
+}
+
+/* Le champ actif au sein de la tuile passe au-dessus des autres champs/contenu. */
+.city-ac:focus-within {
+  z-index: 100;
 }
 
 /* ---------- Carrousel météo ---------- */
@@ -1587,7 +1592,7 @@ li.done .todo-check {
 
 .city-ac-list {
   position: absolute;
-  z-index: 30;
+  z-index: 500;
   top: calc(100% + 4px);
   left: 0;
   right: 0;

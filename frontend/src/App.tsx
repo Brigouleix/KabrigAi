@@ -1238,10 +1238,15 @@ function HomeView({ goChat, active }: { goChat: (prompt: string) => void; active
   const [spotify, setSpotify] = useState<SpotifyStatus | null>(null);
 
   useEffect(() => {
-    fetch(`${BACKEND}/api/spotify/status`)
-      .then((r) => r.json())
-      .then(setSpotify)
-      .catch(() => setSpotify(null));
+    const check = () =>
+      fetch(`${BACKEND}/api/spotify/status`)
+        .then((r) => r.json())
+        .then(setSpotify)
+        .catch(() => setSpotify(null));
+    check();
+    // Revérifie quand on revient sur la fenêtre (ex. après l'OAuth navigateur).
+    window.addEventListener("focus", check);
+    return () => window.removeEventListener("focus", check);
   }, []);
 
   async function spotifyAction(action: string) {
@@ -1258,6 +1263,15 @@ function HomeView({ goChat, active }: { goChat: (prompt: string) => void; active
     else setSpotify((s) => (s ? { ...s, player: json } : s));
   }
 
+  async function refreshSpotify() {
+    try {
+      const res = await fetch(`${BACKEND}/api/spotify/status`);
+      setSpotify(await res.json());
+    } catch {
+      /* ignore */
+    }
+  }
+
   async function connectSpotify() {
     const res = await fetch(`${BACKEND}/api/spotify/login`);
     const json = await res.json();
@@ -1267,6 +1281,15 @@ function HomeView({ goChat, active }: { goChat: (prompt: string) => void; active
     }
     if (isTauri) openUrl(json.url);
     else window.open(json.url, "_blank");
+    // Vérifie périodiquement la connexion pendant 2 min (le temps que l'OAuth
+    // se fasse dans le navigateur), puis met la tuile à jour automatiquement.
+    let n = 0;
+    const id = setInterval(async () => {
+      n++;
+      const r = await fetch(`${BACKEND}/api/spotify/status`).then((x) => x.json()).catch(() => null);
+      if (r) setSpotify(r);
+      if ((r && r.connected) || n > 40) clearInterval(id);
+    }, 3000);
   }
 
   async function cycleSize(tile: string) {
