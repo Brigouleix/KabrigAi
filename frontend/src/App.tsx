@@ -1131,7 +1131,11 @@ type SearchResult = {
   chart?: ChartData;
 };
 
-function HomeView({ goChat, active }: { goChat: (prompt: string) => void; active: boolean }) {
+function HomeView({ goChat, active, onLoaded }: {
+  goChat: (prompt: string) => void;
+  active: boolean;
+  onLoaded?: () => void;
+}) {
   const [data, setData] = useState<Dashboard | null>(null);
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1245,7 +1249,8 @@ function HomeView({ goChat, active }: { goChat: (prompt: string) => void; active
       .then((r) => r.json())
       .then(({ todos }) => setData((d) => (d ? { ...d, todos } : ({ todos } as Dashboard))))
       .catch(() => {});
-    load();
+    // Premier chargement : on signale quand les tuiles sont remplies (cache le splash).
+    load().finally(() => onLoaded?.());
     // Rafraîchissement automatique toutes les 10 minutes.
     const id = setInterval(() => {
       load();
@@ -2026,13 +2031,11 @@ function App() {
   const [chatId, setChatId] = useState<number | null>(null);
   const [ready, setReady] = useState(false);
 
-  // Écran de chargement à chaque ouverture / F5, jusqu'à ce que le backend
-  // réponde (ou ~3 s max pour ne jamais rester bloqué).
+  // Écran de chargement à chaque ouverture / F5, jusqu'à ce que les tuiles du
+  // dashboard soient remplies (HomeView appelle onLoaded). Filet de sécurité à
+  // 12 s pour ne jamais rester bloqué (ex. backend lent/absent).
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 3000);
-    fetch(`${BACKEND}/api/health`)
-      .then(() => setTimeout(() => setReady(true), 400))
-      .catch(() => setReady(true));
+    const t = setTimeout(() => setReady(true), 12000);
     return () => clearTimeout(t);
   }, []);
 
@@ -2131,7 +2134,7 @@ function App() {
         </div>
       </header>
 
-      <HomeView goChat={goChat} active={tab === "accueil"} />
+      <HomeView goChat={goChat} active={tab === "accueil"} onLoaded={() => setReady(true)} />
       {tab === "chat" && (
         <div className="chat-layout">
           <div className="chat-main">
