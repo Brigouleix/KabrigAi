@@ -799,11 +799,16 @@ function CityInput({
 }) {
   const [sugg, setSugg] = useState<GeoCity[]>([]);
   const [open, setOpen] = useState(false);
+  // Ne cherche QUE quand l'utilisateur tape réellement (pas quand le champ est
+  // pré-rempli au chargement → sinon le menu s'ouvre tout seul sur le dashboard).
+  const [typing, setTyping] = useState(false);
 
   useEffect(() => {
+    if (!typing) return;
     const q = value.trim();
     if (q.length < 2) {
       setSugg([]);
+      setOpen(false);
       return;
     }
     const id = setTimeout(async () => {
@@ -816,7 +821,7 @@ function CityInput({
       }
     }, 250);
     return () => clearTimeout(id);
-  }, [value]);
+  }, [value, typing]);
 
   function pick(c: GeoCity | string) {
     if (typeof c === "string") onSelect(c.trim());
@@ -824,6 +829,7 @@ function CityInput({
     else onSelect(c.name);
     setSugg([]);
     setOpen(false);
+    setTyping(false);
   }
 
   return (
@@ -831,12 +837,20 @@ function CityInput({
       <input
         placeholder={placeholder}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={() => sugg.length && setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onChange={(e) => {
+          setTyping(true);
+          onChange(e.target.value);
+        }}
+        onBlur={() => setTimeout(() => {
+          setOpen(false);
+          setTyping(false);
+        }, 150)}
         onKeyDown={(e) => {
           if (e.key === "Enter") pick(sugg[0] ?? value);
-          if (e.key === "Escape") setOpen(false);
+          if (e.key === "Escape") {
+            setOpen(false);
+            setTyping(false);
+          }
         }}
       />
       {open && sugg.length > 0 && (
