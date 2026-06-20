@@ -29,7 +29,11 @@ _verifier: dict = {"value": ""}
 
 
 def client_id() -> str:
-    return os.getenv("SPOTIFY_CLIENT_ID", "")
+    return os.getenv("SPOTIFY_CLIENT_ID") or os.getenv("OAUTH_SPOTIFY_CLIENT_ID", "")
+
+
+def client_secret() -> str:
+    return os.getenv("SPOTIFY_CLIENT_SECRET") or os.getenv("OAUTH_SPOTIFY_CLIENT_SECRET", "")
 
 
 def _save_token(data: dict) -> None:

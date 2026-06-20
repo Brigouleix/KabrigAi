@@ -621,7 +621,7 @@ function TileBar({ onRefresh, onSearch, placeholder, busy }: {
   );
 }
 
-function MailTile() {
+function MailTile({ compact = false, tick = 0 }: { compact?: boolean; tick?: number }) {
   const [mail, setMail] = useState<Dashboard["mail"] | null>(null);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState("");
@@ -638,7 +638,8 @@ function MailTile() {
   }
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick]);
 
   const msgs = (mail?.messages ?? []).filter((m) =>
     filter ? (m.from + " " + m.subject).toLowerCase().includes(filter.toLowerCase()) : true
@@ -646,7 +647,9 @@ function MailTile() {
 
   return (
     <>
-      <TileBar busy={busy} placeholder="Filtrer mes mails…" onRefresh={load} onSearch={setFilter} />
+      {!compact && (
+        <TileBar busy={busy} placeholder="Filtrer mes mails…" onRefresh={load} onSearch={setFilter} />
+      )}
       {!mail?.configured ? (
         <p className="tile-empty">Non configurée — GMAIL_ADDRESS / GMAIL_APP_PASSWORD dans backend/.env</p>
       ) : msgs.length ? (
@@ -666,7 +669,12 @@ function MailTile() {
   );
 }
 
-function SportTile({ sports, onToggleSport }: { sports: string[]; onToggleSport: (s: string) => void }) {
+function SportTile({ sports, onToggleSport, compact = false, tick = 0 }: {
+  sports: string[];
+  onToggleSport: (s: string) => void;
+  compact?: boolean;
+  tick?: number;
+}) {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -694,11 +702,13 @@ function SportTile({ sports, onToggleSport }: { sports: string[]; onToggleSport:
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sports.join(",")]);
+  }, [sports.join(","), tick]);
 
   return (
     <>
-      <TileBar busy={busy} placeholder="Rechercher une actu sport…" onRefresh={load} onSearch={search} />
+      {!compact && (
+        <TileBar busy={busy} placeholder="Rechercher une actu sport…" onRefresh={load} onSearch={search} />
+      )}
       <div className="sport-filters">
         {ALL_SPORTS.map((s) => (
           <button
@@ -726,7 +736,11 @@ function SportTile({ sports, onToggleSport }: { sports: string[]; onToggleSport:
   );
 }
 
-function CustomTile({ def }: { def: { id: string; title: string; query: string } }) {
+function CustomTile({ def, compact = false, tick = 0 }: {
+  def: { id: string; title: string; query: string };
+  compact?: boolean;
+  tick?: number;
+}) {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -743,11 +757,13 @@ function CustomTile({ def }: { def: { id: string; title: string; query: string }
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [def.query]);
+  }, [def.query, tick]);
 
   return (
     <>
-      <TileBar busy={busy} placeholder="Rechercher…" onRefresh={() => load()} onSearch={(q) => load(q || def.query)} />
+      {!compact && (
+        <TileBar busy={busy} placeholder="Rechercher…" onRefresh={() => load()} onSearch={(q) => load(q || def.query)} />
+      )}
       {items.length ? (
         <ul className="tile-list">
           {items.map((s, i) => (
@@ -894,10 +910,11 @@ type SearchResult = {
   chart?: ChartData;
 };
 
-function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
+function HomeView({ goChat, active }: { goChat: (prompt: string) => void; active: boolean }) {
   const [data, setData] = useState<Dashboard | null>(null);
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
+  const [tick, setTick] = useState(0);
   const [query, setQuery] = useState("");
   const [searchBusy, setSearchBusy] = useState(false);
   const [result, setResult] = useState<SearchResult | null>(null);
@@ -1001,13 +1018,19 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
   }
 
   useEffect(() => {
-    // Todos d'abord (endpoint rapide) pour un affichage instantané,
-    // puis le dashboard complet (météo/sport/sorties/mail, plus lent).
+    // Chargement UNE seule fois au démarrage (HomeView reste monté ensuite,
+    // donc pas de rechargement à chaque retour sur l'accueil).
     fetch(`${BACKEND}/api/todos`)
       .then((r) => r.json())
       .then(({ todos }) => setData((d) => (d ? { ...d, todos } : ({ todos } as Dashboard))))
       .catch(() => {});
     load();
+    // Rafraîchissement automatique toutes les 10 minutes.
+    const id = setInterval(() => {
+      load();
+      setTick((t) => t + 1);
+    }, 10 * 60 * 1000);
+    return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1167,7 +1190,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
   const tiles = data?.prefs?.tiles ?? ["weather", "agenda", "sport", "sorties"];
 
   return (
-    <main className="dashboard">
+    <main className="dashboard" style={{ display: active ? undefined : "none" }}>
       <div className="dash-bar">
         <h2>
           Bonjour Antoine <span className="wave">👋</span>
@@ -1179,7 +1202,13 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             onKeyDown={(e) => e.key === "Enter" && saveCity()}
             placeholder="Ville"
           />
-          <button onClick={() => load()} disabled={loading}>
+          <button
+            onClick={() => {
+              load();
+              setTick((t) => t + 1);
+            }}
+            disabled={loading}
+          >
             {loading ? "…" : "⟳"}
           </button>
         </div>
@@ -1346,14 +1375,14 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             return (
               <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>🏉 Sport <ExpandBtn tile={t} /> <SizeBtn tile={t} /></h3>
-                <SportTile sports={data?.prefs?.sports ?? ["tous"]} onToggleSport={toggleSport} />
+                <SportTile sports={data?.prefs?.sports ?? ["tous"]} onToggleSport={toggleSport} compact tick={tick} />
               </Tile>
             );
           if (t === "mail")
             return (
               <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>📬 Boîte mail <ExpandBtn tile={t} /> <SizeBtn tile={t} /></h3>
-                <MailTile />
+                <MailTile compact tick={tick} />
               </Tile>
             );
           if (t === "spotify") {
@@ -1461,7 +1490,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
             return (
               <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>
-                  📌 {def.title} <SizeBtn tile={t} />
+                  📌 {def.title} <ExpandBtn tile={t} /> <SizeBtn tile={t} />
                   <button
                     className="size-btn del-tile"
                     title="Supprimer la tuile"
@@ -1477,7 +1506,7 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
                     ✕
                   </button>
                 </h3>
-                <CustomTile def={def} />
+                <CustomTile def={def} compact tick={tick} />
               </Tile>
             );
           }
@@ -1494,7 +1523,11 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
         <div className="lightbox" onClick={() => setExpanded(null)}>
           <div className="lightbox-content tile-modal" onClick={(e) => e.stopPropagation()}>
             <div className="tile-modal-head">
-              <h3>{TILE_LABELS[expanded] ?? "Détails"}</h3>
+              <h3>
+                {expanded.startsWith("custom:")
+                  ? data?.prefs?.custom?.find((c) => `custom:${c.id}` === expanded)?.title ?? "Détails"
+                  : TILE_LABELS[expanded] ?? "Détails"}
+              </h3>
               <button className="lightbox-x" onClick={() => setExpanded(null)}>✕</button>
             </div>
             <div className="tile-modal-body">
@@ -1507,9 +1540,15 @@ function HomeView({ goChat }: { goChat: (prompt: string) => void }) {
               )}
               {expanded === "notes" && <NotesTileContent />}
               {expanded === "agenda" && <AgendaView />}
+              {expanded === "mail" && <MailTile />}
               {expanded === "sport" && (
                 <SportTile sports={data?.prefs?.sports ?? ["tous"]} onToggleSport={toggleSport} />
               )}
+              {expanded.startsWith("custom:") &&
+                (() => {
+                  const def = data?.prefs?.custom?.find((c) => `custom:${c.id}` === expanded);
+                  return def ? <CustomTile def={def} /> : null;
+                })()}
             </div>
           </div>
         </div>
@@ -1810,7 +1849,7 @@ function App() {
         </div>
       </header>
 
-      {tab === "accueil" && <HomeView goChat={goChat} />}
+      <HomeView goChat={goChat} active={tab === "accueil"} />
       {tab === "chat" && (
         <div className="chat-layout">
           <div className="chat-main">
