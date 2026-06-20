@@ -1436,9 +1436,7 @@ function HomeView({ goChat, active }: { goChat: (prompt: string) => void; active
   return (
     <main className="dashboard" style={{ display: active ? undefined : "none" }}>
       <div className="dash-bar">
-        <h2>
-          Bonjour Antoine <span className="wave">👋</span>
-        </h2>
+        <h2>Hello There {data?.prefs?.user_name ?? ""}</h2>
         <div className="dash-city">
           <CityInput
             value={city}
