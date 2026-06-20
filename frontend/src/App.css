@@ -1666,6 +1666,26 @@ li.done .todo-check {
   cursor: default;
 }
 
+.gmaps-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text) !important;
+  text-decoration: none;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.gmaps-btn:hover {
+  border-color: var(--accent);
+}
+
 /* ---------- Notes ---------- */
 .notes-add {
   display: flex;

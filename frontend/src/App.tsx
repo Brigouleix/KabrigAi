@@ -904,9 +904,24 @@ function RouteTile() {
         </div>
       </div>
       {err && <p className="tile-empty">{err}</p>}
-      {route && <RouteCard data={route} />}
+      {route && (
+        <>
+          <RouteCard data={route} />
+          <ExternalLink className="gmaps-btn" href={gmapsUrl(route)}>
+            <span aria-hidden>📍</span> Ouvrir dans Google Maps
+          </ExternalLink>
+        </>
+      )}
     </>
   );
+}
+
+function gmapsUrl(r: RouteData): string {
+  const travel =
+    r.mode === "velo" ? "bicycling" : r.mode === "pieton" ? "walking" : "driving";
+  const o = `${r.start[0]},${r.start[1]}`;
+  const d = `${r.end[0]},${r.end[1]}`;
+  return `https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${d}&travelmode=${travel}`;
 }
 
 function WeatherManager({
