@@ -68,18 +68,25 @@ def _db() -> sqlite3.Connection:
     return conn
 
 
-async def get_weather(city: str) -> tuple[str, dict]:
-    """Retourne (texte pour le LLM, données structurées pour le widget UI)."""
+async def get_weather(city: str, lat: float | None = None, lon: float | None = None) -> tuple[str, dict]:
+    """Retourne (texte pour le LLM, données structurées pour le widget UI).
+
+    Si lat/lon sont fournis (ville choisie dans l'autocomplétion), on les utilise
+    directement — pas de re-géocodage, donc pas d'ambiguïté (Terni IT vs FR).
+    """
     async with httpx.AsyncClient(timeout=10) as client:
-        geo = await client.get(
-            "https://geocoding-api.open-meteo.com/v1/search",
-            params={"name": city, "count": 5, "language": "fr"},
-        )
-        results = geo.json().get("results")
-        if not results:
-            return f"Ville introuvable : {city}", {}
-        # À nom égal, on privilégie la France (Brest, Bretagne != Brest, Biélorussie).
-        loc = next((r for r in results if r.get("country_code") == "FR"), results[0])
+        if lat is not None and lon is not None:
+            loc = {"name": city, "latitude": lat, "longitude": lon, "country": ""}
+        else:
+            geo = await client.get(
+                "https://geocoding-api.open-meteo.com/v1/search",
+                params={"name": city, "count": 5, "language": "fr"},
+            )
+            results = geo.json().get("results")
+            if not results:
+                return f"Ville introuvable : {city}", {}
+            # À nom égal, on privilégie la France (Brest BR != Brest Biélorussie).
+            loc = next((r for r in results if r.get("country_code") == "FR"), results[0])
         meteo = await client.get(
             "https://api.open-meteo.com/v1/forecast",
             params={

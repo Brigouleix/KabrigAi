@@ -49,7 +49,7 @@ type AgendaEvent = {
 
 type Prefs = {
   city: string;
-  weather_cities?: string[];
+  weather_cities?: (string | { name: string; lat: number; lon: number })[];
   sports: string[];
   tiles: string[];
   spotify: string;
@@ -782,18 +782,22 @@ function CustomTile({ def, compact = false, tick = 0 }: {
 }
 
 // Champ ville réutilisable avec autocomplétion (géocodage Open-Meteo).
+type GeoCity = { name: string; label: string; lat: number; lon: number };
+
 function CityInput({
   value,
   onChange,
   onSelect,
+  onSelectFull,
   placeholder = "Rechercher une ville…",
 }: {
   value: string;
   onChange: (v: string) => void;
   onSelect: (name: string) => void;
+  onSelectFull?: (c: GeoCity) => void;
   placeholder?: string;
 }) {
-  const [sugg, setSugg] = useState<{ name: string; label: string }[]>([]);
+  const [sugg, setSugg] = useState<GeoCity[]>([]);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -814,8 +818,10 @@ function CityInput({
     return () => clearTimeout(id);
   }, [value]);
 
-  function pick(name: string) {
-    onSelect(name.trim());
+  function pick(c: GeoCity | string) {
+    if (typeof c === "string") onSelect(c.trim());
+    else if (onSelectFull) onSelectFull(c);
+    else onSelect(c.name);
     setSugg([]);
     setOpen(false);
   }
@@ -829,14 +835,14 @@ function CityInput({
         onFocus={() => sugg.length && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") pick(sugg[0]?.name ?? value);
+          if (e.key === "Enter") pick(sugg[0] ?? value);
           if (e.key === "Escape") setOpen(false);
         }}
       />
       {open && sugg.length > 0 && (
         <ul className="city-ac-list">
           {sugg.map((s) => (
-            <li key={s.label} onMouseDown={() => pick(s.name)}>
+            <li key={s.label} onMouseDown={() => pick(s)}>
               <span aria-hidden>📍</span> {s.label}
             </li>
           ))}
@@ -929,17 +935,16 @@ function WeatherManager({
   weathers,
   onChange,
 }: {
-  cityList: string[];
+  cityList: (string | { name: string; lat: number; lon: number })[];
   weathers: WeatherData[];
   onChange: () => void;
 }) {
   const [city, setCity] = useState("");
   const [busy, setBusy] = useState(false);
-  // Source de vérité = la liste de prefs (pas les météos chargées : une ville
-  // qui n'a pas pu être géocodée resterait sinon perdue à chaque édition).
   const cities = cityList;
+  const nameOf = (c: string | { name: string }) => (typeof c === "string" ? c : c.name);
 
-  async function save(next: string[]) {
+  async function save(next: typeof cities) {
     setBusy(true);
     await fetch(`${BACKEND}/api/prefs`, {
       method: "POST",
@@ -950,27 +955,31 @@ function WeatherManager({
     setBusy(false);
   }
 
-  function add(name: string) {
-    const n = name.trim();
+  // Ajout depuis une suggestion : on garde les coordonnées exactes (pas de
+  // re-géocodage côté affichage → plus d'ambiguïté Terni IT vs FR).
+  function addFull(c: GeoCity) {
     setCity("");
-    if (!n || cities.some((c) => c.toLowerCase() === n.toLowerCase())) return;
-    save([...cities, n]);
+    if (cities.some((x) => nameOf(x).toLowerCase() === c.name.toLowerCase())) return;
+    save([...cities, { name: c.name, lat: c.lat, lon: c.lon }]);
   }
 
   return (
     <div>
       <div className="wm-add">
-        <CityInput value={city} onChange={setCity} onSelect={add} />
-        <button disabled={!city.trim() || busy} onClick={() => add(city)}>
-          Ajouter
+        <CityInput value={city} onChange={setCity} onSelect={() => {}} onSelectFull={addFull} />
+        <button disabled={busy} onClick={() => setCity("")}>
+          Effacer
         </button>
       </div>
+      <p className="tile-empty" style={{ marginBottom: 10 }}>
+        Choisis une ville dans les suggestions pour l'ajouter.
+      </p>
       <div className="wm-chips">
         {cities.map((c) => (
-          <span key={c} className="wm-chip">
-            {c}
+          <span key={nameOf(c)} className="wm-chip">
+            {nameOf(c)}
             {cities.length > 1 && (
-              <button title="Retirer" onClick={() => save(cities.filter((x) => x !== c))}>
+              <button title="Retirer" onClick={() => save(cities.filter((x) => nameOf(x) !== nameOf(c)))}>
                 ✕
               </button>
             )}

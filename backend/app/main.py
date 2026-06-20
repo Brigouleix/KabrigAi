@@ -434,7 +434,7 @@ class PrefsIn(BaseModel):
     reset_tiles: bool = False
     user_name: str | None = None
     ai_name: str | None = None
-    weather_cities: list[str] | None = None
+    weather_cities: list | None = None
 
 
 @app.get("/api/prefs")
@@ -592,7 +592,12 @@ async def geocode(q: str):
             parts.append(c["admin1"])
         if c.get("country"):
             parts.append(c["country"])
-        out.append({"name": c["name"], "label": ", ".join(parts)})
+        out.append({
+            "name": c["name"],
+            "label": ", ".join(parts),
+            "lat": c["latitude"],
+            "lon": c["longitude"],
+        })
     return {"results": out}
 
 
@@ -646,14 +651,21 @@ async def dashboard(city: str = ""):
     """Agrège les tuiles de l'accueil : météo, sport, sorties, agenda."""
     prefs = get_prefs()
     cities = prefs.get("weather_cities") or [prefs.get("city", "Brest")]
+
+    def _name(entry):
+        return entry["name"] if isinstance(entry, dict) else entry
+
     if city:  # une ville passée en query override la 1re
-        cities = [city] + [c for c in cities if c.lower() != city.lower()]
-    city = cities[0]
+        cities = [city] + [c for c in cities if _name(c).lower() != city.lower()]
+    city = _name(cities[0])
 
     async def weather():
-        results = await asyncio.gather(
-            *[get_weather(c) for c in cities], return_exceptions=True
-        )
+        async def one(entry):
+            if isinstance(entry, dict):
+                return await get_weather(entry["name"], entry.get("lat"), entry.get("lon"))
+            return await get_weather(entry)
+
+        results = await asyncio.gather(*[one(c) for c in cities], return_exceptions=True)
         widgets = []
         for r in results:
             if isinstance(r, tuple) and r[1]:

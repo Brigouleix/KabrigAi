@@ -70,7 +70,16 @@ def set_prefs(
     if city:
         prefs["city"] = city.strip()
     if weather_cities is not None:
-        cleaned = [c.strip() for c in weather_cities if c.strip()]
+        cleaned = []
+        for c in weather_cities:
+            if isinstance(c, dict) and c.get("name"):
+                cleaned.append({
+                    "name": str(c["name"]).strip(),
+                    "lat": c.get("lat"),
+                    "lon": c.get("lon"),
+                })
+            elif isinstance(c, str) and c.strip():
+                cleaned.append(c.strip())
         prefs["weather_cities"] = cleaned[:6] or [prefs.get("city", "Brest")]
     if user_name:
         prefs["user_name"] = user_name.strip()
