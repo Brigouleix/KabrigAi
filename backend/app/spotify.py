@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 TOKEN_PATH = Path(__file__).parent.parent / "spotify_token.json"
-REDIRECT_URI = "http://127.0.0.1:8000/api/spotify/callback"
+REDIRECT_URI = "http://127.0.0.1:8000/callback"
 SCOPES = "user-modify-playback-state user-read-playback-state user-read-currently-playing"
 
 _verifier: dict = {"value": ""}

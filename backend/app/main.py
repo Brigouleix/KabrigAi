@@ -467,6 +467,7 @@ async def spotify_login():
     return {"url": sp.login_url()}
 
 
+@app.get("/callback")
 @app.get("/api/spotify/callback")
 async def spotify_callback(code: str = ""):
     from fastapi.responses import HTMLResponse
