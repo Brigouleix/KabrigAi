@@ -1458,7 +1458,7 @@ function HomeView({ goChat, active, onLoaded }: {
   return (
     <main className="dashboard" style={{ display: active ? undefined : "none" }}>
       <div className="dash-bar">
-        <h2>Hello There {data?.prefs?.user_name ?? ""}</h2>
+        <h2>Hello There, {data?.prefs?.user_name ?? ""}</h2>
         <div className="dash-city">
           <CityInput
             value={city}
