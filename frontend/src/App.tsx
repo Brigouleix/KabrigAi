@@ -1229,34 +1229,49 @@ function HomeView({ goChat, active, onLoaded }: {
     }
   }
 
-  async function load(c = "") {
+  async function load(c = ""): Promise<boolean> {
     setLoading(true);
     try {
       const res = await fetch(`${BACKEND}/api/dashboard?city=${encodeURIComponent(c)}`);
       const json: Dashboard = await res.json();
       setData(json);
       setCity(json.prefs.city);
+      setLoading(false);
+      return true;
     } catch {
-      setData(null);
+      setLoading(false);
+      return false; // backend injoignable
     }
-    setLoading(false);
   }
 
   useEffect(() => {
-    // Chargement UNE seule fois au démarrage (HomeView reste monté ensuite,
-    // donc pas de rechargement à chaque retour sur l'accueil).
-    fetch(`${BACKEND}/api/todos`)
-      .then((r) => r.json())
-      .then(({ todos }) => setData((d) => (d ? { ...d, todos } : ({ todos } as Dashboard))))
-      .catch(() => {});
-    // Premier chargement : on signale quand les tuiles sont remplies (cache le splash).
-    load().finally(() => onLoaded?.());
+    let cancelled = false;
+    // Premier chargement avec reconnexion auto : si le backend n'est pas encore
+    // prêt (app lancée avant lui), on réessaie toutes les 2,5 s jusqu'à succès.
+    (async () => {
+      let signaled = false;
+      for (let attempt = 0; !cancelled; attempt++) {
+        const ok = await load();
+        if (ok) {
+          onLoaded?.();
+          break;
+        }
+        if (!signaled && attempt >= 3) {
+          onLoaded?.(); // après ~7,5 s sans backend, on lève le splash quand même
+          signaled = true;
+        }
+        await new Promise((r) => setTimeout(r, 2500));
+      }
+    })();
     // Rafraîchissement automatique toutes les 10 minutes.
     const id = setInterval(() => {
       load();
       setTick((t) => t + 1);
     }, 10 * 60 * 1000);
-    return () => clearInterval(id);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -2091,10 +2106,20 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    fetch(`${BACKEND}/api/health`)
-      .then((r) => r.json())
-      .then(setHealth)
-      .catch(() => setHealth({ ollama: false, models: [] }));
+    const check = () =>
+      fetch(`${BACKEND}/api/health`)
+        .then((r) => r.json())
+        .then(setHealth)
+        .catch(() => setHealth({ ollama: false, models: [] }));
+    check();
+    // Vérifie le statut toutes les 8 s (passe de "Hors ligne" à "En ligne" dès
+    // que le backend répond, sans avoir à rafraîchir).
+    const id = setInterval(check, 8000);
+    window.addEventListener("focus", check);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", check);
+    };
   }, []);
 
   function goChat(prompt: string) {
