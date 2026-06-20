@@ -1229,7 +1229,14 @@ footer button:disabled {
 }
 
 .spotify-connect {
-  margin: 0 0 12px;
+  margin: 0;
+}
+
+.spotify-connect-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .spotify-player {

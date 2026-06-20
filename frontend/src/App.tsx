@@ -1597,9 +1597,14 @@ function HomeView({ goChat, active }: { goChat: (prompt: string) => void; active
               <Tile className={tileClass(t)} key={t} drag={dropProps(t)} grip={handleProps(t)} id={`tile-${t}`}>
                 <h3>🎵 Spotify <SizeBtn tile={t} /></h3>
                 {spotify?.configured && !spotify.connected && (
-                  <button className="wa-btn spotify-connect" onClick={connectSpotify}>
-                    Connecter mon compte Spotify
-                  </button>
+                  <div className="spotify-connect-row">
+                    <button className="wa-btn spotify-connect" onClick={connectSpotify}>
+                      Connecter mon compte Spotify
+                    </button>
+                    <button className="tile-refresh" title="J'ai autorisé : vérifier" onClick={refreshSpotify}>
+                      ⟳
+                    </button>
+                  </div>
                 )}
                 {spotify?.connected && (
                   <div className="spotify-player">
