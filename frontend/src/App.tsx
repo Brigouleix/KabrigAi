@@ -790,12 +790,14 @@ function CityInput({
   onSelect,
   onSelectFull,
   placeholder = "Rechercher une ville…",
+  address = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSelect: (name: string) => void;
   onSelectFull?: (c: GeoCity) => void;
   placeholder?: string;
+  address?: boolean;
 }) {
   const [sugg, setSugg] = useState<GeoCity[]>([]);
   const [open, setOpen] = useState(false);
@@ -806,22 +808,24 @@ function CityInput({
   useEffect(() => {
     if (!typing) return;
     const q = value.trim();
-    if (q.length < 2) {
+    const minLen = address ? 3 : 2;
+    if (q.length < minLen) {
       setSugg([]);
       setOpen(false);
       return;
     }
+    const endpoint = address ? "geocode-address" : "geocode";
     const id = setTimeout(async () => {
       try {
-        const res = await fetch(`${BACKEND}/api/geocode?q=${encodeURIComponent(q)}`);
+        const res = await fetch(`${BACKEND}/api/${endpoint}?q=${encodeURIComponent(q)}`);
         setSugg((await res.json()).results);
         setOpen(true);
       } catch {
         setSugg([]);
       }
-    }, 250);
+    }, address ? 600 : 250); // Nominatim : 1 req/s max → débounce plus long
     return () => clearTimeout(id);
-  }, [value, typing]);
+  }, [value, typing, address]);
 
   function pick(c: GeoCity | string) {
     if (typeof c === "string") onSelect(c.trim());
@@ -896,6 +900,9 @@ function WeatherCarousel({ weathers }: { weathers: WeatherData[] }) {
 function RouteTile() {
   const [origin, setOrigin] = useState("");
   const [dest, setDest] = useState("");
+  // Coordonnées exactes du lieu choisi dans les suggestions (adresse précise).
+  const [oCoord, setOCoord] = useState<{ lat: number; lon: number } | null>(null);
+  const [dCoord, setDCoord] = useState<{ lat: number; lon: number } | null>(null);
   const [mode, setMode] = useState("voiture");
   const [busy, setBusy] = useState(false);
   const [route, setRoute] = useState<RouteData | null>(null);
@@ -906,9 +913,10 @@ function RouteTile() {
     setBusy(true);
     setErr("");
     try {
-      const res = await fetch(
-        `${BACKEND}/api/route?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&mode=${mode}`
-      );
+      let url = `${BACKEND}/api/route?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&mode=${mode}`;
+      if (oCoord) url += `&olat=${oCoord.lat}&olon=${oCoord.lon}`;
+      if (dCoord) url += `&dlat=${dCoord.lat}&dlon=${dCoord.lon}`;
+      const res = await fetch(url);
       const json = await res.json();
       if (json.ok) setRoute(json.data);
       else {
@@ -930,8 +938,34 @@ function RouteTile() {
   return (
     <>
       <div className="route-form">
-        <CityInput value={origin} onChange={setOrigin} onSelect={setOrigin} placeholder="Départ…" />
-        <CityInput value={dest} onChange={setDest} onSelect={setDest} placeholder="Arrivée…" />
+        <CityInput
+          address
+          value={origin}
+          onChange={(v) => {
+            setOrigin(v);
+            setOCoord(null);
+          }}
+          onSelect={setOrigin}
+          onSelectFull={(c) => {
+            setOrigin(c.label);
+            setOCoord({ lat: c.lat, lon: c.lon });
+          }}
+          placeholder="Départ (ville ou adresse)…"
+        />
+        <CityInput
+          address
+          value={dest}
+          onChange={(v) => {
+            setDest(v);
+            setDCoord(null);
+          }}
+          onSelect={setDest}
+          onSelectFull={(c) => {
+            setDest(c.label);
+            setDCoord({ lat: c.lat, lon: c.lon });
+          }}
+          placeholder="Arrivée (ville ou adresse)…"
+        />
         <div className="route-form-bottom">
           <div className="route-modes">
             {modes.map(([m, icon]) => (

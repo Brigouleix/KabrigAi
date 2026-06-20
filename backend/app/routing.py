@@ -27,12 +27,30 @@ def _fmt_duration(seconds: float) -> str:
     return f"{minutes // 60} h {minutes % 60:02d}"
 
 
-async def get_route(origin: str, destination: str, mode: str = "voiture") -> tuple[str, dict | None]:
-    """Itinéraire entre deux lieux. mode : voiture, velo ou pieton."""
+async def get_route(
+    origin: str,
+    destination: str,
+    mode: str = "voiture",
+    origin_coords: tuple[float, float] | None = None,
+    dest_coords: tuple[float, float] | None = None,
+) -> tuple[str, dict | None]:
+    """Itinéraire entre deux lieux (adresses ou villes).
+
+    Si origin_coords/dest_coords sont fournis (lieu choisi dans l'autocomplétion),
+    on les utilise directement — adresses précises sans re-géocodage.
+    """
     profile = OSRM_PROFILES.get(mode, OSRM_PROFILES["voiture"])
     async with httpx.AsyncClient(timeout=20) as client:
-        start = await _geocode(client, origin)
-        end = await _geocode(client, destination)
+        start = (
+            {"lat": origin_coords[0], "lon": origin_coords[1], "display_name": origin}
+            if origin_coords
+            else await _geocode(client, origin)
+        )
+        end = (
+            {"lat": dest_coords[0], "lon": dest_coords[1], "display_name": destination}
+            if dest_coords
+            else await _geocode(client, destination)
+        )
         if not start or not end:
             return f"Lieu introuvable : {origin if not start else destination}", None
         r = await client.get(

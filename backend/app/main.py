@@ -603,13 +603,46 @@ async def geocode(q: str):
 
 
 @app.get("/api/route")
-async def route(origin: str, destination: str, mode: str = "voiture"):
+async def route(
+    origin: str,
+    destination: str,
+    mode: str = "voiture",
+    olat: float | None = None,
+    olon: float | None = None,
+    dlat: float | None = None,
+    dlon: float | None = None,
+):
     from .routing import get_route
 
-    text, widget = await get_route(origin, destination, mode)
+    oc = (olat, olon) if olat is not None and olon is not None else None
+    dc = (dlat, dlon) if dlat is not None and dlon is not None else None
+    text, widget = await get_route(origin, destination, mode, oc, dc)
     if widget:
         return {"ok": True, "data": widget["data"], "text": text}
     return {"ok": False, "text": text}
+
+
+@app.get("/api/geocode-address")
+async def geocode_address(q: str):
+    """Autocomplétion d'adresses complètes (Nominatim/OpenStreetMap)."""
+    if len(q.strip()) < 3:
+        return {"results": []}
+    async with httpx.AsyncClient(timeout=8) as client:
+        r = await client.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": q.strip(), "format": "json", "limit": 6, "addressdetails": 0},
+            headers={"User-Agent": "KabrigAI/1.0 (assistant personnel)", "Accept-Language": "fr"},
+        )
+    out = []
+    for c in r.json():
+        label = c.get("display_name", "")
+        out.append({
+            "name": label.split(",")[0],
+            "label": label,
+            "lat": float(c["lat"]),
+            "lon": float(c["lon"]),
+        })
+    return {"results": out}
 
 
 @app.get("/api/tile/mail")
