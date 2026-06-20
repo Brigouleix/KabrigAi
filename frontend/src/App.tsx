@@ -607,13 +607,14 @@ function TileBar({ onRefresh, onSearch, placeholder, busy }: {
   const [q, setQ] = useState("");
   return (
     <div className="tile-bar">
+      <span className="tile-bar-icon">🔍</span>
       <input
         value={q}
         placeholder={placeholder}
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && onSearch(q.trim())}
       />
-      <button className="tile-refresh" title="Rafraîchir" onClick={onRefresh} disabled={busy}>
+      <button className="tile-refresh" title="Rafraîchir / dernières actus" onClick={onRefresh} disabled={busy}>
         {busy ? "…" : "⟳"}
       </button>
     </div>
