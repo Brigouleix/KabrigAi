@@ -48,6 +48,8 @@ type AgendaEvent = {
 };
 
 type Prefs = {
+  user_name?: string;
+  ai_name?: string;
   city: string;
   weather_cities?: (string | { name: string; lat: number; lon: number })[];
   sports: string[];
