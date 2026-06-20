@@ -780,6 +780,71 @@ function CustomTile({ def, compact = false, tick = 0 }: {
   );
 }
 
+// Champ ville réutilisable avec autocomplétion (géocodage Open-Meteo).
+function CityInput({
+  value,
+  onChange,
+  onSelect,
+  placeholder = "Rechercher une ville…",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSelect: (name: string) => void;
+  placeholder?: string;
+}) {
+  const [sugg, setSugg] = useState<{ name: string; label: string }[]>([]);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const q = value.trim();
+    if (q.length < 2) {
+      setSugg([]);
+      return;
+    }
+    const id = setTimeout(async () => {
+      try {
+        const res = await fetch(`${BACKEND}/api/geocode?q=${encodeURIComponent(q)}`);
+        setSugg((await res.json()).results);
+        setOpen(true);
+      } catch {
+        setSugg([]);
+      }
+    }, 250);
+    return () => clearTimeout(id);
+  }, [value]);
+
+  function pick(name: string) {
+    onSelect(name.trim());
+    setSugg([]);
+    setOpen(false);
+  }
+
+  return (
+    <div className="city-ac">
+      <input
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => sugg.length && setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") pick(sugg[0]?.name ?? value);
+          if (e.key === "Escape") setOpen(false);
+        }}
+      />
+      {open && sugg.length > 0 && (
+        <ul className="city-ac-list">
+          {sugg.map((s) => (
+            <li key={s.label} onMouseDown={() => pick(s.name)}>
+              <span aria-hidden>📍</span> {s.label}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function WeatherManager({
   cityList,
   weathers,
@@ -791,30 +856,9 @@ function WeatherManager({
 }) {
   const [city, setCity] = useState("");
   const [busy, setBusy] = useState(false);
-  const [sugg, setSugg] = useState<{ name: string; label: string }[]>([]);
-  const [openSugg, setOpenSugg] = useState(false);
   // Source de vérité = la liste de prefs (pas les météos chargées : une ville
   // qui n'a pas pu être géocodée resterait sinon perdue à chaque édition).
   const cities = cityList;
-
-  // Recherche prédictive (débouncée) sur le géocodage.
-  useEffect(() => {
-    const q = city.trim();
-    if (q.length < 2) {
-      setSugg([]);
-      return;
-    }
-    const id = setTimeout(async () => {
-      try {
-        const res = await fetch(`${BACKEND}/api/geocode?q=${encodeURIComponent(q)}`);
-        setSugg((await res.json()).results);
-        setOpenSugg(true);
-      } catch {
-        setSugg([]);
-      }
-    }, 250);
-    return () => clearTimeout(id);
-  }, [city]);
 
   async function save(next: string[]) {
     setBusy(true);
@@ -829,43 +873,16 @@ function WeatherManager({
 
   function add(name: string) {
     const n = name.trim();
-    if (!n || cities.some((c) => c.toLowerCase() === n.toLowerCase())) {
-      setCity("");
-      setOpenSugg(false);
-      return;
-    }
-    save([...cities, n]);
     setCity("");
-    setSugg([]);
-    setOpenSugg(false);
+    if (!n || cities.some((c) => c.toLowerCase() === n.toLowerCase())) return;
+    save([...cities, n]);
   }
 
   return (
     <div>
       <div className="wm-add">
-        <div className="wm-search">
-          <input
-            placeholder="Rechercher une ville…"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            onFocus={() => sugg.length && setOpenSugg(true)}
-            onBlur={() => setTimeout(() => setOpenSugg(false), 150)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") add(sugg[0]?.name ?? city);
-              if (e.key === "Escape") setOpenSugg(false);
-            }}
-          />
-          {openSugg && sugg.length > 0 && (
-            <ul className="wm-suggest">
-              {sugg.map((s) => (
-                <li key={s.label} onMouseDown={() => add(s.name)}>
-                  <span aria-hidden>📍</span> {s.label}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <button disabled={!city.trim() || busy} onClick={() => add(sugg[0]?.name ?? city)}>
+        <CityInput value={city} onChange={setCity} onSelect={add} />
+        <button disabled={!city.trim() || busy} onClick={() => add(city)}>
           Ajouter
         </button>
       </div>
@@ -1073,13 +1090,15 @@ function HomeView({ goChat, active }: { goChat: (prompt: string) => void; active
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function saveCity() {
+  async function saveCity(name?: string) {
+    const c = (name ?? city).trim();
+    if (!c) return;
     await fetch(`${BACKEND}/api/prefs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ city }),
+      body: JSON.stringify({ city: c }),
     });
-    load(city);
+    load(c);
   }
 
   async function toggleSport(sport: string) {
@@ -1235,11 +1254,14 @@ function HomeView({ goChat, active }: { goChat: (prompt: string) => void; active
           Bonjour Antoine <span className="wave">👋</span>
         </h2>
         <div className="dash-city">
-          <input
+          <CityInput
             value={city}
-            onChange={(e) => setCity(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && saveCity()}
-            placeholder="Ville"
+            onChange={setCity}
+            onSelect={(name) => {
+              setCity(name);
+              saveCity(name);
+            }}
+            placeholder="Ville par défaut"
           />
           <button
             onClick={() => {

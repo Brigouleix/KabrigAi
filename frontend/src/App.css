@@ -532,14 +532,15 @@ footer button:disabled {
   gap: 8px;
 }
 
-.dash-city input {
+.dash-city .city-ac {
+  width: 180px;
+}
+
+.dash-city .city-ac > input {
   padding: 9px 16px;
   border-radius: 999px;
-  border: 1px solid var(--border);
   background: var(--card);
   font-size: 13px;
-  outline: none;
-  width: 140px;
 }
 
 .dash-city button {
@@ -1506,12 +1507,16 @@ li.done .todo-check {
   margin-bottom: 14px;
 }
 
-.wm-search {
-  position: relative;
+.wm-add .city-ac {
   flex: 1;
 }
 
-.wm-add input {
+/* Champ ville avec autocomplétion (réutilisable). */
+.city-ac {
+  position: relative;
+}
+
+.city-ac > input {
   width: 100%;
   padding: 10px 14px;
   border-radius: 10px;
@@ -1522,13 +1527,13 @@ li.done .todo-check {
   outline: none;
 }
 
-.wm-add input:focus {
+.city-ac > input:focus {
   border-color: var(--accent);
 }
 
-.wm-suggest {
+.city-ac-list {
   position: absolute;
-  z-index: 10;
+  z-index: 30;
   top: calc(100% + 4px);
   left: 0;
   right: 0;
@@ -1541,9 +1546,10 @@ li.done .todo-check {
   box-shadow: var(--shadow-lg);
   max-height: 260px;
   overflow-y: auto;
+  min-width: 220px;
 }
 
-.wm-suggest li {
+.city-ac-list li {
   padding: 9px 12px;
   border-radius: 8px;
   font-size: 13.5px;
@@ -1551,9 +1557,10 @@ li.done .todo-check {
   display: flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
 }
 
-.wm-suggest li:hover {
+.city-ac-list li:hover {
   background: var(--accent-soft);
 }
 
