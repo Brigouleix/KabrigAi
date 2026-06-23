@@ -1,9 +1,45 @@
+use std::process::{Child, Command};
+use std::sync::Mutex;
+
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
-    Manager,
+    Manager, RunEvent,
 };
 use tauri_plugin_global_shortcut::ShortcutState;
+
+// Garde le handle du backend (uvicorn) lancé par l'app, pour le tuer à la sortie.
+struct Backend(Mutex<Option<Child>>);
+
+fn start_backend() -> Option<Child> {
+    // exe = .../KabrigAI/frontend/src-tauri/target/<profil>/app.exe
+    let exe = std::env::current_exe().ok()?;
+    let root = exe.ancestors().nth(5)?.to_path_buf(); // .../KabrigAI
+    let backend = root.join("backend");
+    let python = backend.join(".venv").join("Scripts").join("python.exe");
+    if !python.exists() {
+        return None; // dev sans venv au bon endroit : on laisse le backend manuel
+    }
+    let mut cmd = Command::new(python);
+    cmd.args(["-m", "uvicorn", "app.main:app", "--port", "8000"])
+        .current_dir(&backend);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW : pas de console
+    }
+    cmd.spawn().ok()
+}
+
+fn kill_backend(app: &tauri::AppHandle) {
+    if let Some(state) = app.try_state::<Backend>() {
+        if let Ok(mut guard) = state.0.lock() {
+            if let Some(mut child) = guard.take() {
+                let _ = child.kill();
+            }
+        }
+    }
+}
 
 fn toggle_window(app: &tauri::AppHandle) {
     if let Some(win) = app.get_webview_window("main") {
@@ -40,6 +76,9 @@ pub fn run() {
                 )?;
             }
 
+            // Démarre le backend Python et garde son handle pour le tuer à la sortie.
+            app.manage(Backend(Mutex::new(start_backend())));
+
             let show = MenuItem::with_id(app, "show", "Afficher Kabrig", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quitter", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
@@ -62,13 +101,12 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|window, event| {
-            // Fermer la fenêtre = la cacher (Kabrig reste dans le tray).
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let _ = window.hide();
-                api.prevent_close();
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|app_handle, event| {
+            // À la fermeture totale de l'app : on coupe le backend.
+            if let RunEvent::Exit = event {
+                kill_backend(app_handle);
             }
-        })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        });
 }
