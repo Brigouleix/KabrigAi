@@ -1,47 +1,111 @@
-# ⚡ Kabrig AI
+<div align="center">
+  <img src="frontend/public/kabrig-juste-logo.png" alt="Kabrig" width="320" />
+  <h1>Kabrig AI</h1>
+  <p><b>Assistant personnel de bureau type « JARVIS » — 100 % local, 100 % gratuit, 100 % privé.</b></p>
+</div>
 
-Assistant personnel de bureau type "JARVIS" — 100% local et gratuit.
+---
 
-## Stack
+Kabrig est une application de bureau (Windows / macOS / Linux) qui combine deux LLM locaux (via [Ollama](https://ollama.com)) avec un **dashboard de tuiles personnalisable** et un **chat à outils**. Aucune donnée ne quitte ta machine : pas de clé API payante, pas de cloud.
 
-- **Frontend** : Tauri v2 + React + TypeScript (Vite)
-- **Backend** : FastAPI (Python)
-- **LLMs** : Ollama — `qwen2.5:7b` (routeur léger) + `qwen2.5:32b` (cerveau)
+## ✨ Fonctionnalités
 
-## Prérequis
+**Dashboard** — tuiles déplaçables (glisser-déposer), redimensionnables (S/M/L), activables/désactivables :
+- 🌤️ **Météo** multi-villes en carrousel (recherche prédictive, prévisions 7 jours, conseils habillement/linge)
+- ✅ **Todo list** · 🗒️ **Notes** avec sous-dossiers · 📅 **Agenda**
+- 🗺️ **Itinéraire** (adresses précises, voiture/vélo/piéton, carte + lien Google Maps)
+- 🏉 **Sport** (flux L'Équipe filtrable) · 🎉 **Idées de sortie** · 📬 **Mail** (Gmail) · 🎵 **Spotify** · 📌 **Tuiles d'actu personnalisées**
+- 🔍 **Barre de recherche** : recherche web directe ou navigation intelligente vers une tuile
+- Recherche prédictive, rafraîchissement auto, 3 thèmes (clair / sombre / bleu)
 
-- Node.js ≥ 20, Rust (rustup), Python ≥ 3.11, [Ollama](https://ollama.com)
+**Chat** — le LLM appelle des outils automatiquement :
+- Météo, itinéraires, recherche internet + lecture de pages
+- Notes, todo, agenda, préférences d'accueil
+- **Analyse financière** (crypto via CoinGecko, bourse via Yahoo Finance, graphiques)
+- **Création de documents** PDF / Word · **import & résumé** de fichiers (PDF, Word, Excel, txt…)
+- **RAG** sur tes documents (ChromaDB + embeddings locaux)
+- **Envoi d'emails** (avec confirmation) · graphiques · conversations sauvegardées
 
-## Installation des modèles
+## 🧱 Stack
 
-```powershell
-ollama pull qwen2.5:7b
-ollama pull qwen2.5:32b
-```
+| | |
+|---|---|
+| **Frontend** | Tauri v2 · React · TypeScript · Vite |
+| **Backend** | FastAPI · Python |
+| **LLM** | Ollama — `qwen2.5:3b` (routeur rapide) + `qwen2.5:14b` (raisonnement) |
+| **Données** | SQLite · ChromaDB · `nomic-embed-text` |
+| **APIs gratuites** | Open-Meteo · Nominatim/OSRM · DuckDuckGo · CoinGecko · Yahoo Finance · L'Équipe RSS |
 
-## Lancer en dev
+## 📦 Prérequis
 
-Terminal 1 — backend :
-```powershell
+- [Node.js](https://nodejs.org) ≥ 20 · [Rust](https://rustup.rs) · [Python](https://python.org) ≥ 3.11 · [Ollama](https://ollama.com)
+
+## 🚀 Installation
+
+```bash
+# 1. Modèles Ollama
+ollama pull qwen2.5:3b
+ollama pull qwen2.5:14b
+ollama pull nomic-embed-text
+
+# 2. Backend
 cd backend
-.\.venv\Scripts\uvicorn app.main:app --reload --port 8000
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+
+# 3. Frontend
+cd ../frontend
+npm install
 ```
 
-Terminal 2 — app desktop :
-```powershell
-cd frontend
-npx tauri dev
+## ⚙️ Configuration (optionnelle)
+
+Copie `backend/.env.example` en `backend/.env` et remplis ce dont tu as besoin :
+
+```ini
+# Lecture / envoi d'emails (mot de passe d'application Google)
+GMAIL_ADDRESS=...
+GMAIL_APP_PASSWORD=...
+
+# Contrôle Spotify (https://developer.spotify.com/dashboard)
+# Redirect URI à enregistrer : http://127.0.0.1:8000/callback
+OAUTH_SPOTIFY_CLIENT_ID=...
 ```
 
-(ou juste `npm run dev` dans frontend/ pour la version navigateur)
+> Le reste des fonctionnalités marche **sans aucune clé**.
 
-## Roadmap
+## ▶️ Lancer
 
-- [x] Phase 1 — Socle : chat streamé, routing light/heavy
-- [x] Phase 2 — Tools : météo (Open-Meteo), notes (SQLite), lecture documents
-- [x] Phase 3 — UI dynamique : carte météo, markdown, mémoire conversationnelle
-- [x] Phase 4 — Travel : liens pré-remplis Google Flights/Kayak/Skyscanner/Booking/Airbnb + bouton stop
-- [x] Phase 5 — recherche internet (DuckDuckGo), lecture de pages web, envoi de mails (Gmail), tray + raccourci global Ctrl+Espace
-- [ ] Phase 6 — RAG documents (PDF, ChromaDB)
+**En développement :**
+```bash
+# Terminal 1 — backend
+cd backend && .venv\Scripts\uvicorn app.main:app --reload --port 8000
+# Terminal 2 — app
+cd frontend && npx tauri dev
+```
 
-> Note : l'API Amadeus Self-Service a été écartée (portail décommissionné le 17/07/2026).
+**En application de bureau (Windows) :**
+```bash
+cd frontend && npx tauri build      # génère frontend/src-tauri/target/release/app.exe
+```
+Puis double-clic sur le raccourci `Kabrig` (créé via `launch-kabrig.ps1`). L'app **démarre et arrête le backend toute seule**.
+
+## 🏗️ Architecture
+
+```
+KabrigAI/
+├── backend/app/        FastAPI — tools, routing 2-LLM, RAG, finance, agenda, notes…
+├── frontend/src/       React — dashboard à tuiles, chat, widgets (météo/carte/graphique)
+│   └── src-tauri/      Tauri (Rust) — fenêtre, tray, Ctrl+Espace, gestion du backend
+└── launch-kabrig.ps1   Lanceur desktop (Ollama + app)
+```
+
+Le **routeur** dirige chaque requête vers le petit modèle (rapide) ou le gros (raisonnement) par mots-clés, et n'envoie au LLM que les **outils pertinents** pour accélérer.
+
+## 🔒 Vie privée
+
+Tout tourne **en local** : LLM, base de données, documents, embeddings. Tes secrets (`.env`, tokens, données) sont exclus du dépôt.
+
+## ⚡ Note matériel
+
+Optimisé pour une machine modeste (testé sur AMD Radeon RX 6600 + 32 Go RAM). Sur GPU AMD/Windows, exporte `HSA_OVERRIDE_GFX_VERSION=10.3.0` pour de meilleures performances Ollama.
