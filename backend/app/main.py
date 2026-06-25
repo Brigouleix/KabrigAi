@@ -624,21 +624,56 @@ async def route(
 
 @app.get("/api/geocode-address")
 async def geocode_address(q: str):
-    """Autocomplétion d'adresses complètes (Nominatim/OpenStreetMap)."""
+    """Autocomplétion d'adresses précises (Nominatim/OpenStreetMap)."""
     if len(q.strip()) < 3:
         return {"results": []}
     async with httpx.AsyncClient(timeout=8) as client:
         r = await client.get(
             "https://nominatim.openstreetmap.org/search",
-            params={"q": q.strip(), "format": "json", "limit": 6, "addressdetails": 0},
+            params={
+                "q": q.strip(),
+                "format": "jsonv2",
+                "limit": 8,
+                "addressdetails": 1,
+                "dedupe": 1,
+            },
             headers={"User-Agent": "KabrigAI/1.0 (assistant personnel)", "Accept-Language": "fr"},
         )
+    results = r.json()
+
+    def short_label(c: dict) -> str:
+        a = c.get("address", {})
+        road = a.get("road") or a.get("pedestrian") or a.get("neighbourhood") or ""
+        num = a.get("house_number", "")
+        city = a.get("city") or a.get("town") or a.get("village") or a.get("municipality") or ""
+        cc = a.get("country", "")
+        parts = []
+        if num and road:
+            parts.append(f"{num} {road}")
+        elif road:
+            parts.append(road)
+        elif c.get("name"):
+            parts.append(c["name"])
+        if city:
+            parts.append(city)
+        if cc and cc != "France":
+            parts.append(cc)
+        return ", ".join(parts) or c.get("display_name", "")
+
+    # Les adresses avec numéro de rue (les plus précises) d'abord.
+    def precision(c: dict) -> int:
+        a = c.get("address", {})
+        if a.get("house_number"):
+            return 0
+        if a.get("road"):
+            return 1
+        return 2
+
     out = []
-    for c in r.json():
-        label = c.get("display_name", "")
+    for c in sorted(results, key=precision):
         out.append({
-            "name": label.split(",")[0],
-            "label": label,
+            "name": short_label(c),
+            "label": short_label(c),
             "lat": float(c["lat"]),
             "lon": float(c["lon"]),
         })

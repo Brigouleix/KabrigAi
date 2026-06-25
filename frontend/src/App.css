@@ -2121,6 +2121,18 @@ li.done .todo-check {
   overflow: hidden;
   margin-bottom: 10px;
   min-width: 320px;
+  /* Confine les z-index internes de Leaflet (calques/contrôles jusqu'à 1000)
+     pour qu'ils ne débordent pas par-dessus les autres tuiles. */
+  isolation: isolate;
+  position: relative;
+  z-index: 0;
+}
+
+/* Sécurité : les calques Leaflet ne dépassent jamais la tuile. */
+.route-map .leaflet-pane,
+.route-map .leaflet-top,
+.route-map .leaflet-bottom {
+  z-index: 1;
 }
 
 .route-header {
