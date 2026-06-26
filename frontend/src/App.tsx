@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Markdown from "react-markdown";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { WeatherCard, type WeatherData } from "./WeatherCard";
@@ -806,6 +807,26 @@ function CityInput({
   // Ne cherche QUE quand l'utilisateur tape réellement (pas quand le champ est
   // pré-rempli au chargement → sinon le menu s'ouvre tout seul sur le dashboard).
   const [typing, setTyping] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  function updateRect() {
+    const r = inputRef.current?.getBoundingClientRect();
+    if (r) setRect({ top: r.bottom + 4, left: r.left, width: r.width });
+  }
+
+  // Repositionne / ferme le menu en cas de scroll (il est rendu en portail fixe).
+  useEffect(() => {
+    if (!open) return;
+    updateRect();
+    const onScroll = () => setOpen(false);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!typing) return;
@@ -841,6 +862,7 @@ function CityInput({
   return (
     <div className="city-ac">
       <input
+        ref={inputRef}
         placeholder={placeholder}
         value={value}
         onChange={(e) => {
@@ -859,15 +881,23 @@ function CityInput({
           }
         }}
       />
-      {open && sugg.length > 0 && (
-        <ul className="city-ac-list">
-          {sugg.map((s) => (
-            <li key={s.label} onMouseDown={() => pick(s)}>
-              <span aria-hidden>📍</span> {s.label}
-            </li>
-          ))}
-        </ul>
-      )}
+      {open && sugg.length > 0 && rect &&
+        // Portail : le menu est rendu hors de la tuile (sur document.body), donc
+        // il s'affiche au-dessus de tout sans avoir à élever la tuile (ce qui
+        // faisait passer la carte par-dessus les autres tuiles).
+        createPortal(
+          <ul
+            className="city-ac-list"
+            style={{ position: "fixed", top: rect.top, left: rect.left, width: rect.width }}
+          >
+            {sugg.map((s) => (
+              <li key={s.label} onMouseDown={() => pick(s)}>
+                <span aria-hidden>📍</span> {s.label}
+              </li>
+            ))}
+          </ul>,
+          document.body
+        )}
     </div>
   );
 }

@@ -960,16 +960,9 @@ footer button:disabled {
   transform: translateY(-2px);
 }
 
-/* La tuile dont un champ est actif passe au-dessus des voisines, sinon le
-   menu d'autocomplétion (positionné en absolu) est masqué par la tuile suivante. */
-.tiles .tile:focus-within {
-  z-index: 200;
-}
-
-/* Le champ actif au sein de la tuile passe au-dessus des autres champs/contenu. */
-.city-ac:focus-within {
-  z-index: 100;
-}
+/* (Le menu d'autocomplétion est désormais rendu en portail position:fixed —
+   plus besoin d'élever la tuile, ce qui faisait remonter la carte par-dessus
+   les autres tuiles.) */
 
 /* ---------- Carrousel météo ---------- */
 .weather-carousel {
@@ -1652,11 +1645,8 @@ li.done .todo-check {
 }
 
 .city-ac-list {
-  position: absolute;
-  z-index: 500;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
+  /* position/top/left/width fournis en inline (portail fixe). */
+  z-index: 9999;
   list-style: none;
   margin: 0;
   padding: 4px;
@@ -2122,17 +2112,11 @@ li.done .todo-check {
   margin-bottom: 10px;
   min-width: 320px;
   /* Confine les z-index internes de Leaflet (calques/contrôles jusqu'à 1000)
-     pour qu'ils ne débordent pas par-dessus les autres tuiles. */
+     dans un contexte d'empilement propre → ils ne débordent jamais sur les
+     autres tuiles. */
   isolation: isolate;
   position: relative;
   z-index: 0;
-}
-
-/* Sécurité : les calques Leaflet ne dépassent jamais la tuile. */
-.route-map .leaflet-pane,
-.route-map .leaflet-top,
-.route-map .leaflet-bottom {
-  z-index: 1;
 }
 
 .route-header {
