@@ -8,6 +8,12 @@
 
 Kabrig est une application de bureau (Windows / macOS / Linux) qui combine deux LLM locaux (via [Ollama](https://ollama.com)) avec un **dashboard de tuiles personnalisable** et un **chat à outils**. Aucune donnée ne quitte ta machine : pas de clé API payante, pas de cloud.
 
+## 📸 Aperçu
+
+| Dashboard | Réglages | Chat (analyse financière) |
+|:---:|:---:|:---:|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Réglages](docs/screenshots/settings.png) | ![Chat](docs/screenshots/chat.png) |
+
 ## ✨ Fonctionnalités
 
 **Dashboard** — tuiles déplaçables (glisser-déposer), redimensionnables (S/M/L), activables/désactivables :
